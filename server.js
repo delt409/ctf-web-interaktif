@@ -654,7 +654,36 @@ try{
 
   /* ================== PUBLIC APIS ================== */
 
-  // 1. Registrasi Akun Siswa Mandiri
+  // 0. Status Database & Supabase Connectivity (Publik)
+  if(req.method==='GET'&&url.pathname==='/api/db-status'){
+    const cfg=readSupabaseConfig();
+    if(cfg.enabled && cfg.url && cfg.key){
+      try{
+        await supabaseRequest('ctf_students?select=id&limit=1','GET');
+        const host = new URL(cfg.url).hostname;
+        return send(res,200,{
+          connected: true,
+          mode: 'supabase',
+          host,
+          statusText: `DATABASE: 🟢 SUPABASE CLOUD (${host})`
+        });
+      }catch(err){
+        return send(res,200,{
+          connected: false,
+          mode: 'local',
+          error: err.message,
+          statusText: 'DATABASE: ⚠️ SUPABASE (PERIKSA IZIN SQL)'
+        });
+      }
+    }
+    return send(res,200,{
+      connected: false,
+      mode: 'local',
+      statusText: 'DATABASE: 📁 LOCAL STORAGE'
+    });
+  }
+
+  // 1. Registrasi Akun Siswa Mandiri (Supabase Utama)
   if(req.method==='POST'&&url.pathname==='/api/register'){
     const b=await body(req);
     const name=cleanName(b.name);
@@ -664,7 +693,19 @@ try{
     }
 
     let db=readDB();
-    if(db.users[name]){
+    const supabaseCfg=readSupabaseConfig();
+
+    // 1. Cek duplikasi di Supabase jika aktif
+    if(supabaseCfg.enabled){
+      try{
+        const remoteCheck = await supabaseRequest(`ctf_students?name=eq.${encodeURIComponent(name)}&select=id`,'GET');
+        if(Array.isArray(remoteCheck) && remoteCheck.length > 0){
+          return send(res,409,{error:`Nama "${name}" sudah terdaftar di Supabase! Silakan masuk dengan kata sandi Anda.`});
+        }
+      }catch(err){
+        console.warn('Supabase check duplicate warning:', err.message);
+      }
+    } else if(db.users[name]){
       return send(res,409,{error:`Nama "${name}" sudah terdaftar! Silakan login atau pilih nama lain.`});
     }
 
@@ -682,20 +723,24 @@ try{
     };
     writeDB(db);
 
-    const supabaseCfg=readSupabaseConfig();
+    // 2. Simpan langsung ke Supabase ctf_students
     if(supabaseCfg.enabled){
-      supabaseRequest('ctf_students?on_conflict=name','POST',[{
-        name,
-        password_hash: passwordHash,
-        kelas: db.users[name].kelas,
-        nisn: db.users[name].nisn,
-        solved: [],
-        attempts: 0,
-        score: 0,
-        speed_bonus: 0,
-        notes: '',
-        last_active: new Date().toISOString()
-      }]).catch(err=>console.warn('Supabase register sync error:',err.message));
+      try{
+        await supabaseRequest('ctf_students?on_conflict=name','POST',[{
+          name,
+          password_hash: passwordHash,
+          kelas: db.users[name].kelas,
+          nisn: db.users[name].nisn,
+          solved: [],
+          attempts: 0,
+          score: 0,
+          speed_bonus: 0,
+          notes: '',
+          last_active: new Date().toISOString()
+        }]);
+      }catch(err){
+        console.warn('Supabase direct register warning:', err.message);
+      }
     }
 
     const token=createStudentToken(name);
@@ -705,64 +750,68 @@ try{
       token,
       name,
       kelas: db.users[name].kelas,
-      message:'Registrasi akun siswa berhasil!'
+      message:'Registrasi akun siswa berhasil terhubung ke database Supabase!'
     });
   }
 
-  // 2. Login Siswa (Dengan Verifikasi Password / PIN)
+  // 2. Login Siswa (Dengan Verifikasi Password / PIN dari Supabase)
   if(req.method==='POST'&&url.pathname==='/api/login'){
     const b=await body(req);
     const name=cleanName(b.name);
     if(!name) return send(res,400,{error:'Nama siswa harus 2–40 karakter alfanumerik.'});
     
     let db=readDB();
-    const existing = db.users[name];
+    const supabaseCfg=readSupabaseConfig();
+    let studentData = db.users[name];
 
-    if(!existing){
-      if(b.password && String(b.password).length >= 4){
-        db.users[name] = {
-          passwordHash: hashPassword(b.password),
-          kelas: b.kelas || 'TJKT',
-          nisn: b.nisn || '',
-          solved: [],
-          attempts: 0,
-          score: 0,
-          speedBonus: 0,
-          teacherNote: '',
-          createdAt: new Date().toISOString()
-        };
-        writeDB(db);
-      } else {
-        return send(res,404,{error:`Akun "${name}" belum terdaftar. Silakan pilih tab "Registrasi Mandiri".`});
-      }
-    } else {
-      if(existing.passwordHash){
-        if(!b.password || hashPassword(b.password) !== existing.passwordHash){
-          return send(res,401,{error:'Kata sandi / PIN keamanan salah.'});
+    // 1. Ambil data siswa dari Supabase jika aktif
+    if(supabaseCfg.enabled){
+      try{
+        const remoteRes = await supabaseRequest(`ctf_students?name=eq.${encodeURIComponent(name)}&select=*`,'GET');
+        if(Array.isArray(remoteRes) && remoteRes.length > 0){
+          const rs = remoteRes[0];
+          studentData = {
+            passwordHash: rs.password_hash || (studentData ? studentData.passwordHash : ''),
+            kelas: rs.kelas || 'TJKT',
+            nisn: rs.nisn || '',
+            solved: rs.solved || [],
+            attempts: rs.attempts || 0,
+            score: rs.score || 0,
+            speedBonus: rs.speed_bonus || 0,
+            teacherNote: rs.notes || ''
+          };
+          db.users[name] = studentData;
+          writeDB(db);
         }
-      } else if(b.password && String(b.password).length >= 4){
-        existing.passwordHash = hashPassword(b.password);
-        writeDB(db);
+      }catch(err){
+        console.warn('Supabase fetch student login warning:', err.message);
+      }
+    }
+
+    if(!studentData){
+      return send(res,404,{error:`Akun "${name}" belum terdaftar. Silakan klik tab "Registrasi Mandiri" untuk mendaftar.`});
+    }
+
+    // 2. Verifikasi Kata Sandi
+    if(studentData.passwordHash){
+      if(!b.password || hashPassword(b.password) !== studentData.passwordHash){
+        return send(res,401,{error:'Kata sandi yang Anda masukkan salah. Silakan periksa kembali.'});
+      }
+    } else if(b.password && String(b.password).length >= 4){
+      // Siswa lama tanpa password, pasangkan password pertama kali
+      studentData.passwordHash = hashPassword(b.password);
+      writeDB(db);
+      if(supabaseCfg.enabled){
+        supabaseRequest(`ctf_students?name=eq.${encodeURIComponent(name)}`,'PATCH',{
+          password_hash: studentData.passwordHash
+        }).catch(()=>{});
       }
     }
 
     const token=createStudentToken(name);
     sessions.set(token, name);
 
-    const supabaseCfg=readSupabaseConfig();
-    if(supabaseCfg.enabled){
-      supabaseRequest('ctf_students?on_conflict=name','POST',[{
-        name,
-        kelas: db.users[name].kelas,
-        nisn: db.users[name].nisn,
-        solved: db.users[name].solved || [],
-        attempts: db.users[name].attempts || 0,
-        score: db.users[name].score || 0,
-        last_active: new Date().toISOString()
-      }]).catch(()=>{});
-    }
-
-    return send(res,200,{token,name,kelas:db.users[name].kelas});
+    return send(res,200,{token,name,kelas:studentData.kelas});
   }
 
   // 3. Status Ujian, Timer & Skor Dinamis (Publik untuk Siswa)
@@ -850,8 +899,36 @@ try{
     // Daftar Tantangan & Progres
     if(req.method==='GET'&&url.pathname==='/api/challenges'){
       const examCfg=db.examConfig||{examMode:false,strictDynamic:false};
+      const supabaseCfg=readSupabaseConfig();
+      if(supabaseCfg.enabled){
+        try{
+          const remoteChalls=await supabaseRequest('ctf_challenges?select=*','GET');
+          if(Array.isArray(remoteChalls) && remoteChalls.length>0){
+            db.challenges=remoteChalls.map(rc=>({
+              id: rc.id,
+              topic: rc.topic||'Umum',
+              category: rc.category||'Linux',
+              title: rc.title,
+              difficulty: rc.difficulty,
+              points: rc.points,
+              summary: rc.summary||'',
+              lesson: rc.lesson||'',
+              details: Array.isArray(rc.details)?rc.details:[],
+              audioText: rc.audio_text||'',
+              task: rc.task,
+              answers: Array.isArray(rc.answers)?rc.answers:[],
+              hint: rc.hint||'',
+              explain: rc.explain||''
+            })).sort((a,b)=>a.id-b.id);
+            writeDB(db);
+          }
+        }catch(e){
+          console.warn('Sync challenges from Supabase warning:', e.message);
+        }
+      }
+      const curChalls=getAllChallenges();
       return send(res,200,{
-        challenges: allChalls.map(({answers,answer,...c})=>({
+        challenges: curChalls.map(({answers,answer,...c})=>({
           ...c,
           dynamicFlag: examCfg.examMode ? getStudentDynamicFlag(name, c.id) : undefined,
           examMode: examCfg.examMode

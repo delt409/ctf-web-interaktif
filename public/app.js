@@ -32,12 +32,35 @@ async function api(url,method='GET',data){
   return j;
 }
 
+async function updateDbStatusPill(){
+  try{
+    const st=await fetch('/api/db-status').then(r=>r.json());
+    const pill=$('#supabasePillStatus');
+    if(pill && st.statusText){
+      pill.textContent=st.statusText;
+      if(st.connected){
+        pill.style.color='#059669';
+        pill.style.borderColor='#059669';
+        pill.style.background='#ECFDF5';
+      }else if(st.mode==='supabase'){
+        pill.style.color='#D97706';
+        pill.style.borderColor='#D97706';
+        pill.style.background='#FFFBEB';
+      }else{
+        pill.style.color='var(--pensil)';
+        pill.style.background='var(--kertas-karton)';
+      }
+    }
+  }catch{}
+}
+
 async function refresh(){
   const j=await api('/api/challenges');
   challenges=j.challenges;
   progress=j.progress;
   examModeActive=!!j.examMode;
   $('#who').textContent=name||'Penyelidik';
+  updateDbStatusPill();
   render();
 }
 
@@ -2083,6 +2106,14 @@ async function checkExamTimer(){
 
 setInterval(checkExamTimer, 1000);
 checkExamTimer();
+updateDbStatusPill();
+
+if($('#btnOpenRegister')){
+  $('#btnOpenRegister').onclick=()=>{
+    $('#loginDialog')?.showModal();
+    showRegisterForm();
+  };
+}
 
 if(token&&name){
   refresh().catch(()=>{$('#loginDialog').showModal()});
