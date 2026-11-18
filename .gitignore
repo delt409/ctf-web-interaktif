@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment & Secret Credentials
+.env
+.env*.local
+.env.production
+.env.development
+*.env
+*.key
+*.pem
+*.cert
+*.pfx
+id_rsa*
+id_ed25519*
+secrets/
+
+# Data lokal & kredensial Supabase (mencegah progres siswa & API key terdorong ke GitHub)
+data/*.json
+!data/progress.example.json
+data/supabase_config.json
+
+# Vercel deployment artifacts
+.vercel/
+
+# OS and Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
