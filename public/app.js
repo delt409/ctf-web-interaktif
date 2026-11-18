@@ -924,6 +924,7 @@ async function admin(){
           <h2 style="font-family:var(--font-judul);font-size:28px;margin:8px 0">Panel Penilaian Siswa & Pengaturan Ujian</h2>
         </div>
         <div style="display:flex;gap:8px">
+          <button class="btn-secondary-action" id="btnOpenChangePassword" style="font-size:11px">🔐 Ganti Sandi Admin</button>
           <button class="btn-secondary-action" id="btnAdminLogout" style="font-size:11px">Keluar Sesi Guru</button>
         </div>
       </div>
@@ -947,6 +948,12 @@ async function admin(){
     view='dashboard';
     render();
   };
+
+  if($('#btnOpenChangePassword')){
+    $('#btnOpenChangePassword').onclick=()=>{
+      $('#changePasswordDialog').showModal();
+    };
+  }
 
   document.querySelectorAll('[data-sub]').forEach(b=>{
     b.onclick=()=>{
@@ -2066,9 +2073,62 @@ $('#adminLoginForm').onsubmit=async e=>{
   }
 };
 
-$('#closeAdminDialog').onclick=()=>{
-  $('#adminLoginDialog').close();
-};
+// Tombol Close untuk Semua Popup Dialog
+if($('#closeLoginDialog')){
+  $('#closeLoginDialog').onclick = () => {
+    $('#loginDialog')?.close();
+  };
+}
+
+if($('#closeAdminDialogTop')){
+  $('#closeAdminDialogTop').onclick = () => {
+    $('#adminLoginDialog')?.close();
+  };
+}
+
+if($('#closeAdminDialog')){
+  $('#closeAdminDialog').onclick = () => {
+    $('#adminLoginDialog')?.close();
+  };
+}
+
+if($('#closeChangePassDialog')){
+  $('#closeChangePassDialog').onclick = () => {
+    $('#changePasswordDialog')?.close();
+  };
+}
+
+// Handler Formulir Ganti Kata Sandi Administrator
+const changePassForm = $('#changePasswordForm');
+if(changePassForm){
+  changePassForm.onsubmit = async e => {
+    e.preventDefault();
+    const errSlot = $('#changePassError');
+    if(errSlot) errSlot.textContent = '';
+    try {
+      const cur = $('#currentAdminPassword').value;
+      const neu = $('#newAdminPassword').value;
+      const conf = $('#confirmAdminPassword').value;
+
+      if(neu !== conf){
+        throw Error('Konfirmasi kata sandi baru tidak sesuai!');
+      }
+
+      const res = await api('/api/admin/change-password', 'POST', {
+        currentPassword: cur,
+        newPassword: neu
+      });
+
+      adminToken = res.token;
+      sessionStorage.setItem('cyber_admin_token', adminToken);
+      alert('✓ Kata sandi administrator berhasil diperbarui!');
+      $('#changePasswordDialog')?.close();
+      changePassForm.reset();
+    } catch(err) {
+      if(errSlot) errSlot.textContent = err.message;
+    }
+  };
+}
 
 async function checkExamTimer(){
   try{

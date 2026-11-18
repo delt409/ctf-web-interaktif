@@ -985,10 +985,38 @@ dialog::backdrop {
   position: relative;
 }
 
+.dialog-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  background: var(--kertas-karton);
+  border: 1.5px solid var(--tinta-pekat);
+  border-radius: 4px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-kode);
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--tinta-pekat);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  z-index: 20;
+}
+
+.dialog-close-btn:hover {
+  background: var(--merah-stempel);
+  color: #fff;
+  border-color: var(--merah-stempel);
+  box-shadow: 2px 2px 0 var(--tinta-pekat);
+}
+
 .dossier-stamp-top {
   position: absolute;
   top: 16px;
-  right: 20px;
+  right: 56px;
   border: 2px solid var(--merah-stempel);
   color: var(--merah-stempel);
   font-family: var(--font-kode);

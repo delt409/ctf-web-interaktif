@@ -113,6 +113,7 @@
   <!-- Dialog Masuk & Registrasi Mandiri Siswa -->
   <dialog id="loginDialog">
     <div class="login-dossier-card">
+      <button type="button" class="dialog-close-btn" id="closeLoginDialog" title="Tutup">✕</button>
       <div class="dossier-stamp-top">AUTENTIKASI SISWA</div>
       
       <!-- Tab Pilihan: Masuk vs Registrasi Mandiri -->
@@ -191,6 +192,7 @@
   <!-- Dialog Masuk Khusus Guru / Admin -->
   <dialog id="adminLoginDialog">
     <form id="adminLoginForm" class="login-dossier-card">
+      <button type="button" class="dialog-close-btn" id="closeAdminDialogTop" title="Tutup">✕</button>
       <div class="dossier-stamp-top">OTORISASI GURU</div>
       <div class="login-header-group">
         <div class="login-serial">PORTAL KHUSUS GURU & KURIKULUM</div>
@@ -200,7 +202,7 @@
 
       <div class="login-field-wrap">
         <label for="adminPassword" class="login-label">KATA SANDI ADMIN / GURU:</label>
-        <input id="adminPassword" type="password" placeholder="Default: guru2026" required autocomplete="current-password">
+        <input id="adminPassword" type="password" placeholder="Masukkan kata sandi admin..." required autocomplete="current-password">
       </div>
 
       <div style="display:flex;gap:10px;margin-top:16px">
@@ -212,6 +214,39 @@
         </button>
       </div>
       <p class="login-error" id="adminLoginError"></p>
+    </form>
+  </dialog>
+
+  <!-- Dialog Ganti Kata Sandi Admin -->
+  <dialog id="changePasswordDialog">
+    <form id="changePasswordForm" class="login-dossier-card">
+      <button type="button" class="dialog-close-btn" id="closeChangePassDialog" title="Tutup">✕</button>
+      <div class="dossier-stamp-top">KEAMANAN</div>
+      <div class="login-header-group">
+        <div class="login-serial">REF: SEC-AUTH-ADMIN/UPDATE</div>
+        <h2>Ubah Kata Sandi Admin</h2>
+        <p class="login-desc">Perbarui kata sandi akses Guru & Administrator untuk menjaga keamanan penilaian.</p>
+      </div>
+
+      <div class="login-field-wrap">
+        <label for="currentAdminPassword" class="login-label">KATA SANDI SAAT INI:</label>
+        <input id="currentAdminPassword" type="password" placeholder="Masukkan kata sandi saat ini" required>
+      </div>
+
+      <div class="login-field-wrap" style="margin-top:12px">
+        <label for="newAdminPassword" class="login-label">KATA SANDI BARU (MIN 6 KARAKTER):</label>
+        <input id="newAdminPassword" type="password" placeholder="Kata sandi baru" required minlength="6">
+      </div>
+
+      <div class="login-field-wrap" style="margin-top:12px">
+        <label for="confirmAdminPassword" class="login-label">KONFIRMASI KATA SANDI BARU:</label>
+        <input id="confirmAdminPassword" type="password" placeholder="Ulangi kata sandi baru" required minlength="6">
+      </div>
+
+      <button type="submit" class="btn-primary-action login-submit" style="margin-top:18px">
+        <span>Simpan Kata Sandi Baru ↵</span>
+      </button>
+      <p class="login-error" id="changePassError"></p>
     </form>
   </dialog>
 

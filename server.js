@@ -517,9 +517,15 @@ function userFor(req){
   return null;
 }
 
+// Helper Membaca Kata Sandi Admin (Bisa Diubah via Panel Guru & Tersimpan di DB)
+function getAdminPassword(){
+  const db = readDB();
+  return db.adminPassword || process.env.ADMIN_PASSWORD || 'guru2026';
+}
+
 function createAdminToken(){
   const ts=Date.now();
-  const sig=crypto.createHmac('sha256', ADMIN_SECRET)
+  const sig=crypto.createHmac('sha256', getAdminPassword())
     .update(`admin_${ts}`)
     .digest('hex');
   return `adm.${ts}.${sig}`;
@@ -535,7 +541,7 @@ function isAdmin(req){
     const ts=Number(parts[1]);
     const sig=parts[2];
     if(!isNaN(ts) && (Date.now() - ts < 7 * 24 * 3600 * 1000)){
-      const expected=crypto.createHmac('sha256', ADMIN_SECRET)
+      const expected=crypto.createHmac('sha256', getAdminPassword())
         .update(`admin_${ts}`)
         .digest('hex');
       if(crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))){
@@ -1079,12 +1085,12 @@ try{
   // 1. Login Admin Guru
   if(req.method==='POST'&&url.pathname==='/api/admin/login'){
     const b=await body(req);
-    if(b.password===ADMIN_SECRET){
+    if(b.password===getAdminPassword()){
       const token=createAdminToken();
       adminSessions.add(token);
       return send(res,200,{success:true,token,message:'Otorisasi Guru berhasil.'});
     }
-    return send(res,401,{error:'Kata sandi Guru/Admin salah. Default: guru2026'});
+    return send(res,401,{error:'Kata sandi administrator salah. Silakan coba lagi.'});
   }
 
   // Proteksi rute Admin
@@ -1093,6 +1099,37 @@ try{
 
     let db=readDB();
     const allChalls=getAllChallenges();
+
+    // 1.5. Ubah Kata Sandi Admin Guru
+    if(req.method==='POST'&&url.pathname==='/api/admin/change-password'){
+      const b=await body(req);
+      const cur=String(b.currentPassword||'').trim();
+      const neu=String(b.newPassword||'').trim();
+
+      if(cur !== getAdminPassword()){
+        return send(res,400,{error:'Kata sandi saat ini salah.'});
+      }
+      if(!neu || neu.length < 6){
+        return send(res,400,{error:'Kata sandi baru minimal 6 karakter.'});
+      }
+
+      db.adminPassword = neu;
+      writeDB(db);
+
+      const supabaseCfg=readSupabaseConfig();
+      if(supabaseCfg.enabled){
+        supabaseRequest('ctf_exam_settings?on_conflict=id','POST',[{
+          id: 'admin_security',
+          settings: { adminPassword: neu },
+          updated_at: new Date().toISOString()
+        }]).catch(()=>{});
+      }
+
+      const newToken = createAdminToken();
+      adminSessions.add(newToken);
+
+      return send(res,200,{success:true,token:newToken,message:'Kata sandi admin berhasil diperbarui!'});
+    }
 
     // 2. Laporan Penilaian Siswa & Analisis Kompetensi
     if(req.method==='GET'&&url.pathname==='/api/admin/analytics'){
