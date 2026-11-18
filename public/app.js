@@ -2383,31 +2383,6 @@ $('#adminLoginForm').onsubmit=async e=>{
   }
 };
 
-const btnForgot = $('#btnForgotAdminPass');
-if(btnForgot){
-  btnForgot.onclick = async (e) => {
-    e.preventDefault();
-    if(!confirm('Reset kata sandi admin ke bawaan standar (guru2026)?')) return;
-    try{
-      const res = await fetch('/api/admin/emergency-reset', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'}
-      }).then(r => r.json());
-
-      if(res.success){
-        $('#adminPassword').value = res.defaultPassword || 'guru2026';
-        $('#adminLoginError').style.color = '#166534';
-        $('#adminLoginError').textContent = '✓ Kata sandi berhasil direset ke "guru2026". Silakan klik Masuk Panel Guru.';
-      } else {
-        throw new Error(res.error || 'Gagal mereset kata sandi.');
-      }
-    }catch(err){
-      $('#adminLoginError').style.color = 'var(--merah-stempel)';
-      $('#adminLoginError').textContent = '✗ ' + err.message;
-    }
-  };
-}
-
 // Tombol Close untuk Semua Popup Dialog
 if($('#closeLoginDialog')){
   $('#closeLoginDialog').onclick = () => {
