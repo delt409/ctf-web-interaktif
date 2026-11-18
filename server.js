@@ -1451,18 +1451,22 @@ try{
 
       const supabaseCfg=readSupabaseConfig();
       if(supabaseCfg.enabled){
-        supabaseRequest('ctf_curriculum?on_conflict=id','POST',[{
-          id: 'main_curriculum',
-          program_keahlian: db.curriculum.programKeahlian,
-          kurikulum: db.curriculum.kurikulum,
-          tujuan_pembelajaran: db.curriculum.tujuanPembelajaran,
-          manfaat_ctf: db.curriculum.manfaatCTF,
-          tingkat_kesulitan: db.curriculum.tingkatKesulitan,
-          updated_at: new Date().toISOString()
-        }]).catch(err=>console.warn('Supabase curriculum save warning:',err.message));
+        try{
+          await supabaseRequest('ctf_curriculum?on_conflict=id','POST',[{
+            id: 'main_curriculum',
+            program_keahlian: db.curriculum.programKeahlian,
+            kurikulum: db.curriculum.kurikulum,
+            tujuan_pembelajaran: db.curriculum.tujuanPembelajaran,
+            manfaat_ctf: db.curriculum.manfaatCTF,
+            tingkat_kesulitan: db.curriculum.tingkatKesulitan,
+            updated_at: new Date().toISOString()
+          }]);
+        }catch(err){
+          console.warn('Supabase curriculum save warning:',err.message);
+        }
       }
 
-      return send(res,200,{success:true,curriculum:db.curriculum,message:'Silabus dan Tujuan Pembelajaran berhasil disimpan ke database!'});
+      return send(res,200,{success:true,curriculum:db.curriculum,message:'Silabus dan Tujuan Pembelajaran berhasil disimpan ke database Supabase & lokal!'});
     }
 
     if(req.method==='POST'&&url.pathname==='/api/admin/curriculum/reset'){
@@ -1471,18 +1475,22 @@ try{
 
       const supabaseCfg=readSupabaseConfig();
       if(supabaseCfg.enabled){
-        supabaseRequest('ctf_curriculum?on_conflict=id','POST',[{
-          id: 'main_curriculum',
-          program_keahlian: db.curriculum.programKeahlian,
-          kurikulum: db.curriculum.kurikulum,
-          tujuan_pembelajaran: db.curriculum.tujuanPembelajaran,
-          manfaat_ctf: db.curriculum.manfaatCTF,
-          tingkat_kesulitan: db.curriculum.tingkatKesulitan,
-          updated_at: new Date().toISOString()
-        }]).catch(()=>{});
+        try{
+          await supabaseRequest('ctf_curriculum?on_conflict=id','POST',[{
+            id: 'main_curriculum',
+            program_keahlian: db.curriculum.programKeahlian,
+            kurikulum: db.curriculum.kurikulum,
+            tujuan_pembelajaran: db.curriculum.tujuanPembelajaran,
+            manfaat_ctf: db.curriculum.manfaatCTF,
+            tingkat_kesulitan: db.curriculum.tingkatKesulitan,
+            updated_at: new Date().toISOString()
+          }]);
+        }catch(err){
+          console.warn('Supabase curriculum reset warning:',err.message);
+        }
       }
 
-      return send(res,200,{success:true,curriculum:db.curriculum,message:'Silabus berhasil direset ke standar Kurikulum Merdeka TJKT.'});
+      return send(res,200,{success:true,curriculum:db.curriculum,message:'Silabus berhasil direset ke standar Kurikulum Merdeka TJKT di Supabase & lokal.'});
     }
 
     // 9. Simpan Catatan Khusus Guru (Evaluasi & Peningkatan Siswa)

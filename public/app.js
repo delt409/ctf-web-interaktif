@@ -326,7 +326,7 @@ function render(){
 /* ================= 1. DASHBOARD ================= */
 function dashboard(){
   const solvedCount=progress.solved.length;
-  const totalCount=challenges.length||15;
+  const totalCount=challenges.length||60;
   const pct=Math.round(100*solvedCount/totalCount);
 
   app.innerHTML=`
@@ -342,7 +342,7 @@ function dashboard(){
             Cara Membobol Sesuatu yang <span class="stabilo-pen">Kamu Pahami.</span>
           </h2>
           <p style="font-size:15px;color:var(--tinta-tubuh);margin:0 0 20px;line-height:1.65">
-            Platform Capture The Flag (CTF) interaktif ini dirancang khusus untuk siswa <strong>Teknik Jaringan Komputer dan Telekomunikasi (TJKT)</strong>. Berisi 15 studi kasus berjenjang dari tingkat <strong>Dasar (Low)</strong>, <strong>Menengah (Medium)</strong>, hingga <strong>Tinggi (High)</strong> dengan simulator terminal Linux nyata.
+            Platform Capture The Flag (CTF) interaktif ini dirancang khusus untuk siswa <strong>Teknik Jaringan Komputer dan Telekomunikasi (TJKT)</strong>. Berisi ${totalCount} studi kasus berjenjang dari tingkat <strong>Dasar (Low)</strong>, <strong>Menengah (Medium)</strong>, hingga <strong>Tinggi (High)</strong> yang tersimpan di database dan dilengkapi simulator terminal Linux nyata.
           </p>
           <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
             <button class="btn-primary-action" id="btnStartCase" type="button" style="font-size:13px;padding:12px 20px">
@@ -431,16 +431,32 @@ User student may run the following:
 
 /* ================= 2. TUJUAN PEMBELAJARAN & SILABUS TJKT ================= */
 async function tujuan(){
-  app.innerHTML=`<div class="dossier-card dossier-card-white">Memuat informasi kurikulum TJKT...</div>`;
+  app.innerHTML=`<div class="dossier-card dossier-card-white">Memuat informasi kurikulum TJKT dari database...</div>`;
   try{
     const j=await api('/api/curriculum');
     app.innerHTML=`
       <div class="dossier-card dossier-card-white" style="border:2px solid var(--tinta-pekat)">
-        <div class="dossier-stamp-top">KURIKULUM MERDEKA</div>
-        <span class="case-file-tab">SILABUS MATA PELAJARAN // ${escapeHTML(j.programKeahlian)}</span>
-        <h2 style="font-family:var(--font-judul);font-size:28px;margin:10px 0 6px">Tujuan & Manfaat Pembelajaran Keamanan Siber</h2>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:12px">
+          <div>
+            <div class="dossier-stamp-top">DATABASE TERSINKRONISASI</div>
+            <span class="case-file-tab">SILABUS MATA PELAJARAN // ${escapeHTML(j.programKeahlian)}</span>
+            <h2 style="font-family:var(--font-judul);font-size:28px;margin:8px 0 6px">Tujuan & Manfaat Pembelajaran Keamanan Siber</h2>
+          </div>
+          <div>
+            ${adminToken ? `
+              <button class="btn-primary-action" id="btnEditCurriculumDirect" style="font-size:12px;padding:8px 16px">
+                ✏️ Edit Silabus & Tujuan Ini (Mode Guru)
+              </button>
+            ` : `
+              <button class="btn-secondary-action" id="btnLoginAdminForCurriculum" style="font-size:11px;padding:6px 12px">
+                🔐 Login Guru untuk Edit Tujuan
+              </button>
+            `}
+          </div>
+        </div>
+
         <p style="font-size:15px;color:var(--tinta-tubuh);max-width:850px;margin-bottom:24px">
-          Pemanfaatan platform Capture The Flag (CTF) ini disusun untuk mengimplementasikan pembelajaran berbasis masalah nyata (Problem-Based Learning) pada konsentrasi keahlian Teknik Jaringan Komputer dan Telekomunikasi.
+          Pemanfaatan platform Capture The Flag (CTF) ini disusun untuk mengimplementasikan pembelajaran berbasis masalah nyata (Problem-Based Learning) pada konsentrasi keahlian Teknik Jaringan Komputer dan Telekomunikasi. Seluruh data tujuan ini terhubung langsung ke database Supabase.
         </p>
 
         <!-- Manfaat Pembelajaran CTF bagi Siswa TJKT -->
@@ -448,7 +464,7 @@ async function tujuan(){
           💡 Manfaat Pembelajaran Melalui Media CTF Interaktif
         </h3>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin:16px 0 28px">
-          ${j.manfaatCTF.map(m=>`
+          ${(j.manfaatCTF||[]).map(m=>`
             <div style="background:var(--kertas-karton);border:1.5px solid var(--tinta-pekat);padding:16px;border-radius:var(--radius);box-shadow:var(--bayangan-dalam)">
               <div style="font-family:var(--font-kode);font-size:11px;font-weight:700;color:var(--merah-stempel);margin-bottom:6px">KEUNGGULAN PEMBELAJARAN</div>
               <p style="margin:0;font-size:14px;color:var(--tinta-pekat)">${escapeHTML(m)}</p>
@@ -457,11 +473,14 @@ async function tujuan(){
         </div>
 
         <!-- Capaian & Tujuan Pembelajaran (TP-01 s/d TP-05) -->
-        <h3 style="font-family:var(--font-judul);font-size:20px;border-bottom:1.5px solid var(--tinta-pekat);padding-bottom:8px">
-          🎯 Capaian & Tujuan Pembelajaran (Elemen Kompetensi TJKT)
-        </h3>
-        <div class="curriculum-grid">
-          ${j.tujuanPembelajaran.map(tp=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid var(--tinta-pekat);padding-bottom:8px">
+          <h3 style="font-family:var(--font-judul);font-size:20px;margin:0">
+            🎯 Capaian & Tujuan Pembelajaran (Elemen Kompetensi TJKT)
+          </h3>
+          ${adminToken ? `<button class="btn-secondary-action" onclick="adminSubView='curriculum';view='admin';render();" style="font-size:10px">✏️ Kelola TP</button>` : ''}
+        </div>
+        <div class="curriculum-grid" style="margin-top:16px">
+          ${(j.tujuanPembelajaran||[]).map(tp=>`
             <div class="curriculum-card ${tp.bidang.toLowerCase().includes('linux')?'linux-pillar':tp.bidang.toLowerCase().includes('jaringan')?'network-pillar':tp.bidang.toLowerCase().includes('hardware')?'hardware-pillar':'cyber-pillar'}">
               <span class="pillar-code">${tp.kode} // ${escapeHTML(tp.bidang)}</span>
               <div class="curriculum-title">${escapeHTML(tp.bidang)}</div>
@@ -475,7 +494,7 @@ async function tujuan(){
           📊 Matriks Level Tantangan CTF
         </h3>
         <div style="display:grid;gap:12px;margin-top:16px">
-          ${j.tingkatKesulitan.map(lvl=>`
+          ${(j.tingkatKesulitan||[]).map(lvl=>`
             <div style="background:var(--kertas);border:1.5px solid var(--tinta-pekat);padding:16px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
               <div>
                 <span class="meta-tag" style="background:var(--tinta-pekat);color:#fff">${lvl.level}</span>
@@ -492,6 +511,20 @@ async function tujuan(){
         </div>
       </div>
     `;
+
+    if($('#btnEditCurriculumDirect')){
+      $('#btnEditCurriculumDirect').onclick=()=>{
+        adminSubView='curriculum';
+        view='admin';
+        render();
+      };
+    }
+
+    if($('#btnLoginAdminForCurriculum')){
+      $('#btnLoginAdminForCurriculum').onclick=()=>{
+        $('#adminLoginDialog')?.showModal();
+      };
+    }
   }catch(err){
     app.innerHTML=`<div class="dossier-card">Gagal memuat kurikulum: ${err.message}</div>`;
   }
@@ -499,7 +532,20 @@ async function tujuan(){
 
 /* ================= 3. BERKAS MATERI ================= */
 function materi(){
-  const c=challenges.find(x=>x.id===selected)||challenges[0];
+  const c=challenges.find(x=>x.id===selected)||(challenges.length ? challenges[0] : null);
+  if(!c){
+    app.innerHTML=`<div class="dossier-card dossier-card-white" style="text-align:center;padding:40px">
+      <h3 style="font-family:var(--font-judul);font-size:22px;margin:0 0 10px">Memuat Berkas Materi dari Database...</h3>
+      <p style="color:var(--pensil);font-size:14px">Mengambil seluruh arsip modul 60 kasus dari database...</p>
+    </div>`;
+    fetch('/api/public/challenges').then(r=>r.json()).then(j=>{
+      if(j && Array.isArray(j.challenges) && j.challenges.length>0){
+        challenges=j.challenges;
+        materi();
+      }
+    }).catch(()=>{});
+    return;
+  }
   const isSolved=progress.solved.includes(c.id);
   const padId=String(c.id).padStart(3,'0');
 
@@ -662,7 +708,20 @@ function materi(){
 
 /* ================= 4. MEJA KASUS CTF ================= */
 function tantangan(){
-  const c=challenges.find(x=>x.id===selected)||challenges[0];
+  const c=challenges.find(x=>x.id===selected)||(challenges.length ? challenges[0] : null);
+  if(!c){
+    app.innerHTML=`<div class="dossier-card dossier-card-white" style="text-align:center;padding:40px">
+      <h3 style="font-family:var(--font-judul);font-size:22px;margin:0 0 10px">Memuat Meja Kasus CTF dari Database...</h3>
+      <p style="color:var(--pensil);font-size:14px">Mengambil studi kasus 60 soal dari database...</p>
+    </div>`;
+    fetch('/api/public/challenges').then(r=>r.json()).then(j=>{
+      if(j && Array.isArray(j.challenges) && j.challenges.length>0){
+        challenges=j.challenges;
+        tantangan();
+      }
+    }).catch(()=>{});
+    return;
+  }
   const isSolved=progress.solved.includes(c.id);
   const padId=String(c.id).padStart(3,'0');
 
@@ -1459,6 +1518,7 @@ async function renderAdminMaterials(){
   try{
     const j=await api('/api/admin/materials');
     const materials=j.materials||[];
+    challenges=materials; // Selalu sinkronkan variabel global challenges ke seluruh halaman publik dan siswa!
 
     slot.innerHTML=`
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px">
@@ -2485,8 +2545,25 @@ if($('#btnOpenRegister')){
   };
 }
 
-if(token&&name){
-  refresh().catch(()=>{$('#loginDialog').showModal()});
-}else{
-  $('#loginDialog').showModal();
+// Inisialisasi Aplikasi: Selalu ambil materi publik dari database saat pertama kali aplikasi dimuat
+async function initApp(){
+  try{
+    const pub = await fetch('/api/public/challenges').then(r=>r.json()).catch(()=>null);
+    if(pub && Array.isArray(pub.challenges) && pub.challenges.length>0){
+      challenges = pub.challenges;
+    }
+  }catch(e){}
+
+  if(token && name){
+    try{
+      await refresh();
+    }catch(err){
+      $('#loginDialog')?.showModal();
+    }
+  }else{
+    render();
+    $('#loginDialog')?.showModal();
+  }
 }
+
+initApp();
