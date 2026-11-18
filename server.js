@@ -143,6 +143,7 @@ async function supabaseRequest(endpoint, method='GET', bodyData=null){
         }
       });
     });
+    req.setTimeout(3000, ()=>{ req.destroy(new Error('Koneksi Supabase timeout')); });
     req.on('error',reject);
     if(bodyData) req.write(JSON.stringify(bodyData));
     req.end();
@@ -739,8 +740,10 @@ try{
 
   /* ================== STUDENT AUTHENTICATED APIS ================== */
   if(url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/admin/')){
-    const name=userFor(req);
-    if(!name) return send(res,401,{error:'Silakan masuk terlebih dahulu dengan nama siswa.'});
+    let name=userFor(req);
+    const adminUser=isAdmin(req);
+    if(!name && !adminUser) return send(res,401,{error:'Silakan masuk terlebih dahulu dengan nama siswa.'});
+    if(!name && adminUser) name='admin';
     
     let db=readDB();
     db.users[name]??={solved:[],attempts:0,kelas:'TJKT',nisn:''};

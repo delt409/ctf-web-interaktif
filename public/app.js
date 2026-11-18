@@ -14,11 +14,12 @@ let materiSearchQuery='';
 const escapeHTML=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 async function api(url,method='GET',data){
+  const authToken = url.includes('/admin/') ? (adminToken||token) : (token||adminToken);
   const r=await fetch(url,{
     method,
     headers:{
       'Content-Type':'application/json',
-      Authorization:'Bearer '+(url.includes('/admin/')?(adminToken||token):token)
+      Authorization: authToken ? `Bearer ${authToken}` : ''
     },
     body:data?JSON.stringify(data):undefined
   });
@@ -58,24 +59,39 @@ async function updateDbStatusPill(){
 
 async function refresh(){
   try{
-    const j=await api('/api/challenges');
-    challenges=j.challenges;
-    progress=j.progress;
-    examModeActive=!!j.examMode;
-    $('#who').textContent=name||'Penyelidik';
+    // Jika siswa sedang login, ambil materi & progres siswa
+    if(token && name){
+      const j=await api('/api/challenges');
+      challenges=j.challenges;
+      progress=j.progress;
+      examModeActive=!!j.examMode;
+      $('#who').textContent=name;
+    } else if(adminToken){
+      // Jika mode guru/admin, ambil daftar materi dari admin / publik
+      const j=await api('/api/admin/materials').catch(()=>fetch('/api/public/challenges').then(r=>r.json()));
+      if(j && Array.isArray(j.materials)) challenges=j.materials;
+      else if(j && Array.isArray(j.challenges)) challenges=j.challenges;
+      $('#who').textContent='Guru / Admin';
+    } else {
+      // Halaman publik saat belum login
+      const pub=await fetch('/api/public/challenges').then(r=>r.json()).catch(()=>null);
+      if(pub && Array.isArray(pub.challenges) && pub.challenges.length>0){
+        challenges=pub.challenges;
+      }
+      $('#who').textContent='Penyelidik';
+    }
     updateDbStatusPill();
     render();
   }catch(err){
-    // Fallback saat belum login: muat daftar materi publik dari Supabase agar silabus & kartu kasus tetap sinkron
+    console.warn('Refresh telemetri warning:', err.message);
     try{
-      const pub=await fetch('/api/public/challenges').then(r=>r.json());
+      const pub=await fetch('/api/public/challenges').then(r=>r.json()).catch(()=>null);
       if(pub && Array.isArray(pub.challenges) && pub.challenges.length>0){
         challenges=pub.challenges;
       }
     }catch{}
     updateDbStatusPill();
     render();
-    throw err;
   }
 }
 
