@@ -389,7 +389,7 @@ async function supabaseRequest(endpoint, method='GET', bodyData=null){
       'apikey': cfg.key,
       'Authorization': `Bearer ${cfg.key}`,
       'Content-Type': 'application/json',
-      'Prefer': 'return=representation'
+      'Prefer': endpoint.includes('on_conflict') ? 'resolution=merge-duplicates,return=representation' : 'return=representation'
     };
     const req=https.request({
       protocol: parsed.protocol,

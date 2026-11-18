@@ -1,10 +1,10 @@
 -- ====================================================================
--- SKRIP STRUKTUR TABEL SUPABASE UNTUK CYBERLAB CTF (TJKT SMKN)
--- Salin dan jalankan skrip ini di SQL Editor pada Dashboard Supabase Anda
+-- SKRIP STRUKTUR TABEL & HAK AKSES SUPABASE UNTUK CYBERLAB CTF
+-- Salin dan jalankan seluruh isi skrip ini di SQL Editor Supabase Anda
 -- ====================================================================
 
 -- 1. Tabel Siswa & Progres Pembelajaran
-CREATE TABLE IF NOT EXISTS ctf_students (
+CREATE TABLE IF NOT EXISTS public.ctf_students (
   id BIGSERIAL PRIMARY KEY,
   name TEXT UNIQUE NOT NULL,
   kelas TEXT DEFAULT 'TJKT',
@@ -16,11 +16,10 @@ CREATE TABLE IF NOT EXISTS ctf_students (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Index untuk pencarian cepat berdasarkan nama siswa
-CREATE INDEX IF NOT EXISTS idx_ctf_students_name ON ctf_students(name);
+CREATE INDEX IF NOT EXISTS idx_ctf_students_name ON public.ctf_students(name);
 
 -- 2. Tabel Kasus Tantangan Kustom (Dibuat Guru via Panel Admin)
-CREATE TABLE IF NOT EXISTS ctf_challenges (
+CREATE TABLE IF NOT EXISTS public.ctf_challenges (
   id INTEGER PRIMARY KEY,
   topic TEXT NOT NULL,
   category TEXT NOT NULL DEFAULT 'Linux', -- Linux, Jaringan, Cyber, Hardware
@@ -37,7 +36,7 @@ CREATE TABLE IF NOT EXISTS ctf_challenges (
 );
 
 -- 3. Tabel Log Pengiriman Jawaban Flag (Audit Keamanan & Penilaian)
-CREATE TABLE IF NOT EXISTS ctf_submissions (
+CREATE TABLE IF NOT EXISTS public.ctf_submissions (
   id BIGSERIAL PRIMARY KEY,
   student_name TEXT NOT NULL,
   challenge_id INTEGER NOT NULL,
@@ -46,16 +45,38 @@ CREATE TABLE IF NOT EXISTS ctf_submissions (
   submitted_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Index untuk query analitik siswa
-CREATE INDEX IF NOT EXISTS idx_ctf_submissions_student ON ctf_submissions(student_name);
-CREATE INDEX IF NOT EXISTS idx_ctf_submissions_chall ON ctf_submissions(challenge_id);
+CREATE INDEX IF NOT EXISTS idx_ctf_submissions_student ON public.ctf_submissions(student_name);
+CREATE INDEX IF NOT EXISTS idx_ctf_submissions_chall ON public.ctf_submissions(challenge_id);
 
--- Aktifkan Row Level Security (RLS) & Berikan Kebijakan Akses API Publik/Service
-ALTER TABLE ctf_students ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ctf_challenges ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ctf_submissions ENABLE ROW LEVEL SECURITY;
+-- ====================================================================
+-- 4. PEMBERIAN HAK AKSES DATABASE (MENGATASI 'permission denied')
+-- Memberikan hak SELECT, INSERT, UPDATE, DELETE ke role PostgREST Supabase
+-- ====================================================================
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 
--- Kebijakan Akses: Membuka hak baca & tulis untuk REST API key (anon / authenticated)
-CREATE POLICY "Allow public read/write students" ON ctf_students FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public read/write challenges" ON ctf_challenges FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public read/write submissions" ON ctf_submissions FOR ALL USING (true) WITH CHECK (true);
+GRANT ALL ON TABLE public.ctf_students TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.ctf_challenges TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.ctf_submissions TO anon, authenticated, service_role;
+
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+
+-- Set default privilege untuk objek-objek baru di masa depan
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+
+-- ====================================================================
+-- 5. KEBIJAKAN ROW LEVEL SECURITY (RLS)
+-- ====================================================================
+ALTER TABLE public.ctf_students ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ctf_challenges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ctf_submissions ENABLE ROW LEVEL SECURITY;
+
+-- Hapus policy lama jika ada untuk mencegah error duplikasi
+DROP POLICY IF EXISTS "Allow public read/write students" ON public.ctf_students;
+DROP POLICY IF EXISTS "Allow public read/write challenges" ON public.ctf_challenges;
+DROP POLICY IF EXISTS "Allow public read/write submissions" ON public.ctf_submissions;
+
+-- Berikan akses penuh (SELECT, INSERT, UPDATE, DELETE) untuk koneksi aplikasi
+CREATE POLICY "Allow public read/write students" ON public.ctf_students FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public read/write challenges" ON public.ctf_challenges FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public read/write submissions" ON public.ctf_submissions FOR ALL USING (true) WITH CHECK (true);
