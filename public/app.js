@@ -7,11 +7,31 @@ let progress={solved:[],attempts:0};
 let view='dashboard';
 let selected=1;
 let examModeActive=false;
-let adminSubView='grades'; // grades, exam, materials, curriculum, accounts, supabase
+let adminSubView='grades'; // grades, exam, materials, curriculum, accounts, alerts, supabase
+let authSubTab='login'; // 'login' | 'register'
 let activeCategoryFilter='all'; // all, Linux, Jaringan, Cyber, Hardware
 let materiSearchQuery='';
 
 const escapeHTML=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function updateHeaderAuthUI(){
+  const whoSpan=$('#who');
+  const btnAuth=$('#btnHeaderAuth');
+  const btnLogout=$('#logout');
+  if(token && name){
+    if(whoSpan) whoSpan.textContent=name;
+    if(btnAuth) btnAuth.style.display='none';
+    if(btnLogout) btnLogout.style.display='inline-flex';
+  } else if(adminToken){
+    if(whoSpan) whoSpan.textContent='Guru / Superadmin';
+    if(btnAuth) btnAuth.style.display='none';
+    if(btnLogout) btnLogout.style.display='inline-flex';
+  } else {
+    if(whoSpan) whoSpan.textContent='Penyelidik';
+    if(btnAuth) btnAuth.style.display='inline-flex';
+    if(btnLogout) btnLogout.style.display='none';
+  }
+}
 
 async function api(url,method='GET',data){
   const authToken = url.includes('/admin/') ? (adminToken||token) : (token||adminToken);
@@ -27,7 +47,8 @@ async function api(url,method='GET',data){
     if(url.includes('/admin/')){
       sessionStorage.removeItem('cyber_admin_token');
       adminToken=null;
-      $('#adminLoginDialog')?.showModal();
+      view='superadminLogin';
+      render();
     }
   }
   const j=await r.json().catch(()=>({}));
@@ -310,6 +331,8 @@ function render(){
   
   const titles={
     dashboard:'Sampul & Indeks Kasus',
+    auth:'Identifikasi Berkas Operasi Siswa',
+    superadminLogin:'Gerbang Otorisasi Komando Superadmin',
     tujuan:'Tujuan Pembelajaran & Silabus TJKT',
     materi:'Berkas Materi & Analisis Lapangan',
     tantangan:'Meja Kasus (CTF Workbench)',
@@ -319,6 +342,8 @@ function render(){
   };
   const breadcrumbs={
     dashboard:'BERKAS INVESTIGASI SIBER • EDISI 2026',
+    auth:'AUTENTIKASI & REGISTRASI MANDIRI SISWA // LAB TJKT',
+    superadminLogin:'PORTAL KHUSUS GURU & ADMINISTRATOR // SUPERADMIN',
     tujuan:'SILABUS KURIKULUM MERDEKA • TEKNIK JARINGAN KOMPUTER & TELEKOMUNIKASI',
     materi:'PEDOMAN TEKNIS & PROSEDUR INVESTIGASI',
     tantangan:'MEJA OPERASI KHUSUS & REKAYASA EKSPLOITASI',
@@ -330,13 +355,253 @@ function render(){
   $('#pageTitle').textContent=titles[view]||'Investigasi Lapangan';
   $('#canvasBreadcrumb').textContent=breadcrumbs[view]||'BERKAS RESMI';
 
+  updateHeaderAuthUI();
+
   if(view==='dashboard')dashboard();
+  if(view==='auth')authView();
+  if(view==='superadminLogin')superadminLoginView();
   if(view==='tujuan')tujuan();
   if(view==='materi')materi();
   if(view==='tantangan')tantangan();
   if(view==='terminal')terminal();
   if(view==='peringkat')peringkat();
   if(view==='admin')admin();
+}
+
+/* ================= VIEW: AUTENTIKASI SISWA (MASUK & REGISTRASI INTEGRATED - NO POPUP) ================= */
+function authView(){
+  app.innerHTML = `
+    <div class="dossier-card dossier-card-white" style="border:2px solid var(--tinta-pekat);max-width:680px;margin:10px auto">
+      <div class="tape-strip"></div>
+      <div class="dossier-stamp-top">BERKAS IDENTIFIKASI OPERATOR // SISWA</div>
+      
+      <!-- Tab Pilihan: Masuk vs Registrasi Mandiri -->
+      <div class="auth-tabs" style="margin-top:14px">
+        <button type="button" class="auth-tab-btn ${authSubTab==='login'?'active':''}" id="authTabLogin">🔑 Masuk Akun Siswa</button>
+        <button type="button" class="auth-tab-btn ${authSubTab==='register'?'active':''}" id="authTabRegister">📝 Registrasi Mandiri Akun Baru</button>
+      </div>
+
+      <!-- Form 1: Masuk Akun Siswa -->
+      <div id="authLoginSection" style="display:${authSubTab==='login'?'block':'none'}">
+        <div class="login-header-group" style="margin-top:14px">
+          <div class="login-serial">REF: AUTH-TJKT-2026/LOGIN</div>
+          <h2 style="font-family:var(--font-judul);font-size:26px;margin:8px 0">Buku Catatan Lapangan</h2>
+          <p class="login-desc" style="font-size:14px;color:var(--tinta-tubuh);line-height:1.6">
+            Masukkan identitas siswa dan PIN/kata sandi Anda untuk menyinkronkan progres praktikum lab keamanan siber, tantangan CTF, dan penilaian rapor kompetensi.
+          </p>
+        </div>
+
+        <form id="inlineLoginForm" style="margin-top:16px">
+          <div class="login-field-wrap">
+            <label for="inpStudentName" class="login-label">NAMA SISWA / IDENTITAS PENGGUNA:</label>
+            <input id="inpStudentName" placeholder="contoh: Ahmad_Fauzi" required minlength="2" maxlength="40" autocomplete="nickname">
+          </div>
+
+          <div class="login-field-wrap" style="margin-top:14px">
+            <label for="inpStudentPassword" class="login-label">KATA SANDI / PIN KEAMANAN:</label>
+            <input id="inpStudentPassword" type="password" placeholder="Masukkan kata sandi/PIN Anda" required minlength="4" maxlength="40" autocomplete="current-password">
+          </div>
+
+          <button type="submit" class="btn-primary-action login-submit" style="margin-top:20px;width:100%;font-size:15px;padding:12px">
+            <span>Masuk & Lanjutkan Lab Siswa →</span>
+          </button>
+          <p class="login-error" id="inlineLoginError" style="color:var(--merah-stempel);margin-top:10px;font-weight:700"></p>
+          
+          <div style="margin-top:18px;padding-top:14px;border-top:1px dashed var(--garis-buku);text-align:center;font-size:13px">
+            Belum memiliki akun siswa? 
+            <a href="#" id="linkGoRegister" style="color:var(--merah-stempel);font-weight:700;text-decoration:underline">Daftar Mandiri Sekarang</a>
+          </div>
+        </form>
+      </div>
+
+      <!-- Form 2: Registrasi Mandiri Siswa Baru -->
+      <div id="authRegisterSection" style="display:${authSubTab==='register'?'block':'none'}">
+        <div class="login-header-group" style="margin-top:14px">
+          <div class="login-serial">REF: REG-TJKT-2026/NEW</div>
+          <h2 style="font-family:var(--font-judul);font-size:26px;margin:8px 0">Registrasi Akun Siswa Baru</h2>
+          <p class="login-desc" style="font-size:14px;color:var(--tinta-tubuh);line-height:1.6">
+            Daftarkan identitas Anda secara mandiri untuk memulai pembelajaran interaktif, memperoleh akses konsol Linux, dan mencatat perolehan XP portofolio siber.
+          </p>
+        </div>
+
+        <form id="inlineRegisterForm" style="margin-top:16px">
+          <div class="login-field-wrap">
+            <label for="inpRegStudentName" class="login-label">NAMA LENGKAP / IDENTITAS SISWA:</label>
+            <input id="inpRegStudentName" placeholder="contoh: Ahmad_Fauzi" required minlength="2" maxlength="40">
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px">
+            <div class="login-field-wrap">
+              <label for="inpRegStudentKelas" class="login-label">KELAS:</label>
+              <input id="inpRegStudentKelas" placeholder="contoh: XII TJKT 1" value="XII TJKT 1" required maxlength="30">
+            </div>
+            <div class="login-field-wrap">
+              <label for="inpRegStudentNisn" class="login-label">NISN (OPSIONAL):</label>
+              <input id="inpRegStudentNisn" placeholder="Nomor Induk Siswa" maxlength="20">
+            </div>
+          </div>
+
+          <div class="login-field-wrap" style="margin-top:14px">
+            <label for="inpRegStudentPassword" class="login-label">BUAT KATA SANDI / PIN (MINIMAL 4 KARAKTER):</label>
+            <input id="inpRegStudentPassword" type="password" placeholder="Buat kata sandi akun Anda" required minlength="4" maxlength="40" autocomplete="new-password">
+          </div>
+
+          <button type="submit" class="btn-primary-action login-submit" style="margin-top:20px;width:100%;font-size:15px;padding:12px">
+            <span>Daftar Akun & Mulai Pembelajaran →</span>
+          </button>
+          <p class="login-error" id="inlineRegisterError" style="color:var(--merah-stempel);margin-top:10px;font-weight:700"></p>
+          
+          <div style="margin-top:18px;padding-top:14px;border-top:1px dashed var(--garis-buku);text-align:center;font-size:13px">
+            Sudah memiliki akun terdaftar? 
+            <a href="#" id="linkGoLogin" style="color:var(--merah-stempel);font-weight:700;text-decoration:underline">Masuk Akun di sini</a>
+          </div>
+        </form>
+      </div>
+
+      <div style="margin-top:20px;text-align:center">
+        <button type="button" class="btn-secondary-action" id="btnCancelAuth" style="font-size:12px">← Kembali ke Sampul Kasus (Dashboard)</button>
+      </div>
+    </div>
+  `;
+
+  $('#authTabLogin').onclick = () => { authSubTab = 'login'; authView(); };
+  $('#authTabRegister').onclick = () => { authSubTab = 'register'; authView(); };
+  $('#linkGoRegister').onclick = (e) => { e.preventDefault(); authSubTab = 'register'; authView(); };
+  $('#linkGoLogin').onclick = (e) => { e.preventDefault(); authSubTab = 'login'; authView(); };
+  $('#btnCancelAuth').onclick = () => { view = 'dashboard'; render(); };
+
+  $('#inlineLoginForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const errSlot = $('#inlineLoginError');
+    errSlot.textContent = '';
+    try {
+      const sName = $('#inpStudentName').value.trim();
+      const sPass = $('#inpStudentPassword').value;
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: sName, password: sPass })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 404) {
+          authSubTab = 'register';
+          authView();
+          $('#inpRegStudentName').value = sName;
+          $('#inlineRegisterError').textContent = data.error;
+          return;
+        }
+        throw Error(data.error || 'Gagal masuk akun');
+      }
+      token = data.token;
+      name = data.name;
+      sessionStorage.setItem('cyber_token', token);
+      sessionStorage.setItem('cyber_name', name);
+      if (data.concurrentWarning) {
+        alert(data.concurrentWarning);
+      }
+      view = 'dashboard';
+      await refresh();
+    } catch (err) {
+      errSlot.textContent = err.message;
+    }
+  };
+
+  $('#inlineRegisterForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const errSlot = $('#inlineRegisterError');
+    errSlot.textContent = '';
+    try {
+      const sName = $('#inpRegStudentName').value.trim();
+      const sKelas = $('#inpRegStudentKelas').value.trim();
+      const sNisn = $('#inpRegStudentNisn')?.value.trim() || '';
+      const sPass = $('#inpRegStudentPassword').value;
+
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: sName, password: sPass, kelas: sKelas, nisn: sNisn })
+      });
+      const data = await res.json();
+      if (!res.ok) throw Error(data.error || 'Gagal mendaftar akun');
+
+      token = data.token;
+      name = data.name;
+      sessionStorage.setItem('cyber_token', token);
+      sessionStorage.setItem('cyber_name', name);
+      alert(`✓ Registrasi berhasil! Selamat datang di CyberLab CTF, ${name}.`);
+      view = 'dashboard';
+      await refresh();
+    } catch (err) {
+      errSlot.textContent = err.message;
+    }
+  };
+}
+
+/* ================= VIEW: OTORISASI GURU & SUPERADMIN (/superadmin - NO POPUP) ================= */
+function superadminLoginView(){
+  app.innerHTML = `
+    <div class="dossier-card dossier-card-white" style="border:2px solid var(--tinta-pekat);max-width:580px;margin:20px auto">
+      <div class="tape-strip"></div>
+      <div class="dossier-stamp-top" style="color:var(--merah-stempel)">OTORISASI KOMANDO // SUPERADMIN</div>
+      
+      <div class="login-header-group" style="margin-top:14px">
+        <div class="login-serial">PORTAL KHUSUS GURU & ADMINISTRATOR // SMK TJKT</div>
+        <h2 style="font-family:var(--font-judul);font-size:26px;margin:8px 0">Gerbang Panel Superadmin</h2>
+        <p class="login-desc" style="font-size:14px;color:var(--tinta-tubuh);line-height:1.6">
+          Akses area khusus instruktur dan pengawas. Masukkan kata sandi administrator untuk mengelola kurikulum HOTS, monitoring sesi siswa ganda, penerbitan akun, dan evaluasi hasil belajar.
+        </p>
+      </div>
+
+      <form id="inlineSuperadminForm" style="margin-top:18px">
+        <div class="login-field-wrap">
+          <label for="inpSuperAdminPassword" class="login-label">KATA SANDI ADMINISTRATOR / GURU:</label>
+          <input id="inpSuperAdminPassword" type="password" placeholder="Masukkan kata sandi superadmin..." required autocomplete="current-password" autofocus>
+        </div>
+
+        <button type="submit" class="btn-primary-action login-submit" style="margin-top:20px;width:100%;font-size:15px;padding:12px">
+          <span>Buka Portal Superadmin →</span>
+        </button>
+        <p class="login-error" id="superAdminLoginError" style="color:var(--merah-stempel);margin-top:10px;font-weight:700"></p>
+        
+        <div style="margin-top:20px;padding-top:14px;border-top:1px dashed var(--garis-buku);text-align:center">
+          <button type="button" class="btn-secondary-action" id="btnBackToHome" style="font-size:12px">← Kembali ke Halaman Utama Siswa</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  $('#btnBackToHome').onclick = () => {
+    view = 'dashboard';
+    window.location.hash = '';
+    render();
+  };
+
+  $('#inlineSuperadminForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const errSlot = $('#superAdminLoginError');
+    errSlot.textContent = '';
+    try {
+      const pass = $('#inpSuperAdminPassword').value;
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pass })
+      });
+      const data = await res.json();
+      if (!res.ok) throw Error(data.error || 'Kata sandi salah!');
+
+      adminToken = data.token;
+      sessionStorage.setItem('cyber_admin_token', adminToken);
+      const adminTab = $('#binderTabAdmin');
+      if (adminTab) adminTab.style.display = 'inline-flex';
+      view = 'admin';
+      adminSubView = 'grades';
+      admin();
+    } catch (err) {
+      errSlot.textContent = err.message;
+    }
+  };
 }
 
 /* ================= 1. DASHBOARD ================= */
@@ -575,7 +840,8 @@ async function tujuan(){
 
     if($('#btnLoginAdminForCurriculum')){
       $('#btnLoginAdminForCurriculum').onclick=()=>{
-        $('#adminLoginDialog')?.showModal();
+        view='superadminLogin';
+        render();
       };
     }
   }catch(err){
@@ -1180,9 +1446,13 @@ async function peringkat(){
 /* ================= 7. PANEL GURU & ADMIN (LENGKAP) ================= */
 async function admin(){
   if(!adminToken){
-    $('#adminLoginDialog').showModal();
+    view='superadminLogin';
+    render();
     return;
   }
+
+  const adminTab=$('#binderTabAdmin');
+  if(adminTab) adminTab.style.display='inline-flex';
 
   app.innerHTML=`
     <div class="dossier-card dossier-card-white" style="border:2px solid var(--tinta-pekat)">
@@ -1205,6 +1475,7 @@ async function admin(){
         <button class="admin-subtab ${adminSubView==='materials'?'active':''}" data-sub="materials">📚 Kelola & Edit Materi</button>
         <button class="admin-subtab ${adminSubView==='curriculum'?'active':''}" data-sub="curriculum">🎯 Kelola Silabus & Tujuan</button>
         <button class="admin-subtab ${adminSubView==='accounts'?'active':''}" data-sub="accounts">👥 Generate & Import CSV Akun</button>
+        <button class="admin-subtab ${adminSubView==='alerts'?'active':''}" data-sub="alerts">🚨 Peringatan Login Ganda</button>
         <button class="admin-subtab ${adminSubView==='supabase'?'active':''}" data-sub="supabase">⚡ Koneksi Supabase & Sync</button>
       </div>
 
@@ -1215,7 +1486,10 @@ async function admin(){
   $('#btnAdminLogout').onclick=()=>{
     sessionStorage.removeItem('cyber_admin_token');
     adminToken=null;
+    const aTab=$('#binderTabAdmin');
+    if(aTab) aTab.style.display='none';
     view='dashboard';
+    window.location.hash='';
     render();
   };
 
@@ -1238,6 +1512,7 @@ async function admin(){
   if(adminSubView==='curriculum') renderAdminCurriculum();
   if(adminSubView==='addCase') renderAdminAddCase();
   if(adminSubView==='accounts') renderAdminAccounts();
+  if(adminSubView==='alerts') renderAdminAlerts();
   if(adminSubView==='supabase') renderAdminSupabase();
 }
 
@@ -2259,6 +2534,137 @@ function renderAdminAccounts(){
   };
 }
 
+/* SUB: TELEMETRI KEAMANAN SESI & LOG LOGIN GANDA (SINGLE DEVICE POLICY) */
+async function renderAdminAlerts(){
+  const slot=$('#adminContentSlot');
+  slot.innerHTML = '<p style="font-family:var(--font-kode);color:var(--pensil);padding:14px">Menghubungi telemetri keamanan sesi...</p>';
+  try{
+    const j = await api('/api/admin/login-alerts');
+    const alerts = j.alerts || [];
+    const activeSessions = j.activeSessions || [];
+
+    slot.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px">
+        <div>
+          <h3 style="font-family:var(--font-judul);font-size:22px;margin:0 0 6px">🚨 Telemetri Keamanan Sesi Tunggal (Single Device Policy)</h3>
+          <p style="font-size:13px;color:var(--pensil);margin:0">
+            Sistem memastikan setiap akun siswa hanya aktif di 1 perangkat. Jika terdeteksi login baru pada akun yang sama, insiden dicatat di bawah dan sesi lama otomatis diputus.
+          </p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-secondary-action" id="btnRefreshAlerts" style="font-size:11px">🔄 Segarkan Data</button>
+          <button class="btn-secondary-action" id="btnClearAlerts" style="font-size:11px;color:var(--merah-stempel)">🗑️ Bersihkan Catatan Insiden</button>
+        </div>
+      </div>
+
+      <!-- Bagian 1: Sesi Aktif Siswa Saat Ini -->
+      <div class="dossier-card" style="margin-bottom:24px;padding:16px">
+        <h4 style="font-family:var(--font-judul);font-size:16px;margin:0 0 12px;color:var(--tinta-pekat)">
+          🟢 Sesi Siswa yang Sedang Aktif (${activeSessions.length} Perangkat)
+        </h4>
+        <div style="overflow-x:auto">
+          <table class="roster-table" style="width:100%;font-size:12px">
+            <thead>
+              <tr>
+                <th>NAMA SISWA</th>
+                <th>ALAMAT IP</th>
+                <th>PERAMBAN / PERANGKAT</th>
+                <th>WAKTU LOGIN</th>
+                <th style="text-align:center">TINDAKAN GURU</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${activeSessions.length === 0 ? `<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--pensil)">Belum ada sesi siswa yang sedang aktif.</td></tr>` : 
+                activeSessions.map(s => `
+                  <tr>
+                    <td><strong>${escapeHTML(s.studentName)}</strong></td>
+                    <td style="font-family:var(--font-kode)">${escapeHTML(s.ip||'-')}</td>
+                    <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHTML(s.userAgent||'')}">
+                      ${escapeHTML(s.userAgent||'-')}
+                    </td>
+                    <td>${new Date(s.loginTime).toLocaleTimeString('id-ID')}</td>
+                    <td style="text-align:center">
+                      <button class="btn-secondary-action btn-kill-session" data-name="${escapeHTML(s.studentName)}" style="font-size:10px;padding:3px 8px;color:var(--merah-stempel)">
+                        ⚡ Putus Sesi
+                      </button>
+                    </td>
+                  </tr>
+                `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Bagian 2: Log Percobaan Login Ganda -->
+      <div class="dossier-card" style="padding:16px">
+        <h4 style="font-family:var(--font-judul);font-size:16px;margin:0 0 12px;color:var(--merah-stempel)">
+          ⚠️ Riwayat Deteksi Percobaan Login Ganda (${alerts.length} Insiden)
+        </h4>
+        <div style="overflow-x:auto">
+          <table class="roster-table" style="width:100%;font-size:12px">
+            <thead>
+              <tr>
+                <th>WAKTU INSIDEN</th>
+                <th>SISWA (KELAS)</th>
+                <th>IP LAMA (TERPUTUS)</th>
+                <th>IP BARU (PERCOBAAN)</th>
+                <th>PERANGKAT BARU</th>
+                <th>STATUS SISTEM</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${alerts.length === 0 ? `<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--pensil)">Tidak ada riwayat pelanggaran login ganda. Seluruh akun beroperasi normal.</td></tr>` :
+                alerts.map(a => `
+                  <tr>
+                    <td style="font-family:var(--font-kode)">${new Date(a.attemptTime).toLocaleString('id-ID')}</td>
+                    <td><strong>${escapeHTML(a.studentName)}</strong> <span style="font-size:10px;color:var(--pensil)">(${escapeHTML(a.kelas||'-')})</span></td>
+                    <td style="font-family:var(--font-kode);color:var(--merah-stempel)">${escapeHTML(a.prevIp||'-')}</td>
+                    <td style="font-family:var(--font-kode);color:#059669">${escapeHTML(a.attemptIp||'-')}</td>
+                    <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHTML(a.attemptUserAgent||'')}">
+                      ${escapeHTML(a.attemptUserAgent||'-')}
+                    </td>
+                    <td>
+                      <span class="meta-tag" style="background:#FEF2F2;color:var(--merah-stempel);border-color:var(--merah-stempel);font-size:9px">
+                        ${escapeHTML(a.action || a.status)}
+                      </span>
+                    </td>
+                  </tr>
+                `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    $('#btnRefreshAlerts').onclick = () => renderAdminAlerts();
+
+    $('#btnClearAlerts').onclick = async () => {
+      if(!confirm('Bersihkan seluruh riwayat catatan login ganda?')) return;
+      try {
+        await api('/api/admin/login-alerts/clear', 'POST');
+        renderAdminAlerts();
+      } catch(e){
+        alert(e.message);
+      }
+    };
+
+    document.querySelectorAll('.btn-kill-session').forEach(btn => {
+      btn.onclick = async () => {
+        const sName = btn.dataset.name;
+        if(!confirm(`Putus sesi aktif siswa "${sName}" secara paksa? Siswa harus masuk kembali.`)) return;
+        try {
+          await api('/api/admin/students/kill-session', 'POST', { studentName: sName });
+          renderAdminAlerts();
+        } catch(e){
+          alert(e.message);
+        }
+      };
+    });
+  }catch(err){
+    slot.innerHTML = `<p style="color:var(--merah-stempel);padding:14px">Gagal memuat telemetri alert: ${escapeHTML(err.message)}</p>`;
+  }
+}
+
 /* SUB 5: KONEKSI SUPABASE & DUAL-STORAGE ENGINE */
 async function renderAdminSupabase(){
   const slot=$('#adminContentSlot');
@@ -2417,154 +2823,34 @@ CREATE POLICY "Public submissions" ON ctf_submissions FOR ALL USING (true) WITH 
 document.querySelectorAll('.binder-tab').forEach(b=>{
   b.onclick=()=>{
     stopAudio();
-    view=b.dataset.view;
+    if(b.dataset.view==='admin' && !adminToken){
+      view='superadminLogin';
+    } else {
+      view=b.dataset.view;
+    }
     render();
   };
 });
 
-$('#logout').onclick=()=>{
-  stopAudio();
-  sessionStorage.clear();
-  token=null;
-  name=null;
-  adminToken=null;
-  location.reload();
-};
-
-// Tab Switch Autentikasi Siswa: Masuk vs Registrasi
-const tabBtnLogin = $('#tabBtnLogin');
-const tabBtnRegister = $('#tabBtnRegister');
-const loginForm = $('#loginForm');
-const registerForm = $('#registerForm');
-
-function showLoginForm(){
-  tabBtnLogin?.classList.add('active');
-  tabBtnRegister?.classList.remove('active');
-  if(loginForm) loginForm.style.display='block';
-  if(registerForm) registerForm.style.display='none';
-}
-
-function showRegisterForm(){
-  tabBtnRegister?.classList.add('active');
-  tabBtnLogin?.classList.remove('active');
-  if(registerForm) registerForm.style.display='block';
-  if(loginForm) loginForm.style.display='none';
-}
-
-if(tabBtnLogin) tabBtnLogin.onclick = showLoginForm;
-if(tabBtnRegister) tabBtnRegister.onclick = showRegisterForm;
-if($('#linkToRegister')) $('#linkToRegister').onclick = (e)=>{e.preventDefault(); showRegisterForm();};
-if($('#linkToLogin')) $('#linkToLogin').onclick = (e)=>{e.preventDefault(); showLoginForm();};
-
-if(loginForm){
-  loginForm.onsubmit=async e=>{
-    e.preventDefault();
-    const errSlot=$('#loginError');
-    if(errSlot) errSlot.textContent='';
-    try{
-      const studentName=$('#studentName').value.trim();
-      const studentPassword=$('#studentPassword').value;
-      const j=await fetch('/api/login',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({name:studentName,password:studentPassword})
-      }).then(async r=>{
-        const resData=await r.json();
-        if(!r.ok){
-          if(r.status===404){
-            $('#regStudentName').value=studentName;
-            showRegisterForm();
-          }
-          throw Error(resData.error);
-        }
-        return resData;
-      });
-      token=j.token;
-      name=j.name;
-      sessionStorage.setItem('cyber_token',token);
-      sessionStorage.setItem('cyber_name',name);
-      $('#loginDialog').close();
-      await refresh();
-    }catch(err){
-      if(errSlot) errSlot.textContent=err.message;
-    }
-  };
-}
-
-if(registerForm){
-  registerForm.onsubmit=async e=>{
-    e.preventDefault();
-    const errSlot=$('#registerError');
-    if(errSlot) errSlot.textContent='';
-    try{
-      const sName=$('#regStudentName').value.trim();
-      const sKelas=$('#regStudentKelas').value.trim();
-      const sNisn=$('#regStudentNisn')?.value.trim()||'';
-      const sPassword=$('#regStudentPassword').value;
-
-      const j=await fetch('/api/register',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({name:sName,password:sPassword,kelas:sKelas,nisn:sNisn})
-      }).then(async r=>{
-        const resData=await r.json();
-        if(!r.ok) throw Error(resData.error);
-        return resData;
-      });
-
-      token=j.token;
-      name=j.name;
-      sessionStorage.setItem('cyber_token',token);
-      sessionStorage.setItem('cyber_name',name);
-      $('#loginDialog').close();
-      alert(`Selamat datang di CyberLab CTF, ${name}! Akun Anda berhasil terdaftar.`);
-      await refresh();
-    }catch(err){
-      if(errSlot) errSlot.textContent=err.message;
-    }
-  };
-}
-
-$('#adminLoginForm').onsubmit=async e=>{
-  e.preventDefault();
-  try{
-    const password=$('#adminPassword').value;
-    const j=await fetch('/api/admin/login',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({password})
-    }).then(async r=>{
-      const resData=await r.json();
-      if(!r.ok) throw Error(resData.error);
-      return resData;
-    });
-    adminToken=j.token;
-    sessionStorage.setItem('cyber_admin_token',adminToken);
-    $('#adminLoginDialog').close();
-    view='admin';
+if($('#btnHeaderAuth')){
+  $('#btnHeaderAuth').onclick=()=>{
+    stopAudio();
+    authSubTab='login';
+    view='auth';
     render();
-  }catch(err){
-    $('#adminLoginError').style.color = 'var(--merah-stempel)';
-    $('#adminLoginError').textContent=err.message;
-  }
-};
-
-// Tombol Close untuk Semua Popup Dialog
-if($('#closeLoginDialog')){
-  $('#closeLoginDialog').onclick = () => {
-    $('#loginDialog')?.close();
   };
 }
 
-if($('#closeAdminDialogTop')){
-  $('#closeAdminDialogTop').onclick = () => {
-    $('#adminLoginDialog')?.close();
-  };
-}
-
-if($('#closeAdminDialog')){
-  $('#closeAdminDialog').onclick = () => {
-    $('#adminLoginDialog')?.close();
+if($('#logout')){
+  $('#logout').onclick=()=>{
+    stopAudio();
+    sessionStorage.removeItem('cyber_token');
+    sessionStorage.removeItem('cyber_name');
+    token=null;
+    name=null;
+    view='dashboard';
+    updateHeaderAuthUI();
+    refresh();
   };
 }
 
@@ -2644,15 +2930,31 @@ setInterval(checkExamTimer, 1000);
 checkExamTimer();
 updateDbStatusPill();
 
-if($('#btnOpenRegister')){
-  $('#btnOpenRegister').onclick=()=>{
-    $('#loginDialog')?.showModal();
-    showRegisterForm();
-  };
+function checkRoute(){
+  const path=window.location.pathname.toLowerCase();
+  const hash=window.location.hash.toLowerCase();
+  const isSuperAdmin=(path==='/superadmin' || path.startsWith('/superadmin/') || hash==='#/superadmin');
+  const adminTab=$('#binderTabAdmin');
+
+  if(isSuperAdmin){
+    if(adminTab) adminTab.style.display='inline-flex';
+    view = adminToken ? 'admin' : 'superadminLogin';
+  } else {
+    if(adminTab && !adminToken) adminTab.style.display='none';
+    else if(adminTab && adminToken) adminTab.style.display='inline-flex';
+    if(view==='superadminLogin') view='dashboard';
+  }
 }
 
-// Inisialisasi Aplikasi: Selalu ambil materi publik dari database saat pertama kali aplikasi dimuat
+window.addEventListener('hashchange', ()=>{
+  checkRoute();
+  render();
+});
+
+// Inisialisasi Aplikasi: Tidak ada dialog popup yang mengganggu, halaman bersih dan tenang
 async function initApp(){
+  checkRoute();
+
   try{
     const pub = await fetch('/api/public/challenges').then(r=>r.json()).catch(()=>null);
     if(pub && Array.isArray(pub.challenges) && pub.challenges.length>0){
@@ -2660,7 +2962,6 @@ async function initApp(){
       if(!challenges.some(c=>c.id===selected)){
         selected = challenges[0].id;
       }
-      render();
     }
   }catch(e){}
 
@@ -2668,11 +2969,10 @@ async function initApp(){
     try{
       await refresh();
     }catch(err){
-      $('#loginDialog')?.showModal();
+      render();
     }
   }else{
     render();
-    $('#loginDialog')?.showModal();
   }
 }
 

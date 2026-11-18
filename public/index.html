@@ -29,11 +29,11 @@
       </div>
 
       <div class="masthead-right">
-        <div class="operator-profile">
+        <div class="operator-profile" id="userAuthSection">
           <span class="operator-label">SISWA:</span>
           <strong id="who" class="operator-name">Penyelidik</strong>
-          <button id="btnOpenRegister" class="btn-logout" style="color:var(--merah-stempel);margin-right:4px;font-weight:700" title="Daftar akun siswa baru">[➕ DAFTAR AKUN]</button>
-          <button id="logout" class="btn-logout" title="Tutup berkas & ganti profil">[KELUAR]</button>
+          <button id="btnHeaderAuth" class="btn-primary-action" style="font-size:11px;padding:5px 12px;margin-left:6px" title="Buka form masuk atau daftar akun">🔑 Masuk / Daftar Akun</button>
+          <button id="logout" class="btn-logout" style="display:none" title="Keluar dari sesi akun siswa">[KELUAR]</button>
         </div>
       </div>
     </header>
@@ -64,7 +64,8 @@
         <span class="tab-index">06</span>
         <span class="tab-label">ROSTER SKOR</span>
       </button>
-      <button class="binder-tab binder-tab-admin" data-view="admin">
+      <!-- Tab Guru/Admin: Tersembunyi dari Siswa/Publik, hanya aktif saat akses /superadmin -->
+      <button class="binder-tab binder-tab-admin" id="binderTabAdmin" data-view="admin" style="display:none">
         <span class="tab-index">⚙</span>
         <span class="tab-label">PANEL GURU & ADMIN</span>
       </button>
@@ -105,114 +106,7 @@
     </main>
   </div>
 
-  <!-- Dialog Masuk & Registrasi Mandiri Siswa -->
-  <dialog id="loginDialog">
-    <div class="login-dossier-card">
-      <button type="button" class="dialog-close-btn" id="closeLoginDialog" title="Tutup">✕</button>
-      <div class="dossier-stamp-top">AUTENTIKASI SISWA</div>
-      
-      <!-- Tab Pilihan: Masuk vs Registrasi Mandiri -->
-      <div class="auth-tabs">
-        <button type="button" class="auth-tab-btn active" id="tabBtnLogin">🔑 Masuk Akun</button>
-        <button type="button" class="auth-tab-btn" id="tabBtnRegister">📝 Registrasi Mandiri</button>
-      </div>
-
-      <!-- 1. Form Masuk Siswa -->
-      <form id="loginForm">
-        <div class="login-header-group">
-          <div class="login-serial">REF: AUTH-TJKT-2026/LOGIN</div>
-          <h2>Buku Catatan Lapangan</h2>
-          <p class="login-desc">Masukkan nama siswa dan kata sandi Anda untuk melanjutkan progres pembelajaran lab dan perolehan skor XP.</p>
-        </div>
-
-        <div class="login-field-wrap">
-          <label for="studentName" class="login-label">NAMA SISWA / PENGGUNA:</label>
-          <input id="studentName" placeholder="contoh: Ahmad_Fauzi" required minlength="2" maxlength="40" autocomplete="nickname">
-        </div>
-
-        <div class="login-field-wrap" style="margin-top:12px">
-          <label for="studentPassword" class="login-label">KATA SANDI / PIN KEAMANAN:</label>
-          <input id="studentPassword" type="password" placeholder="Masukkan sandi/PIN Anda" required minlength="4" maxlength="40" autocomplete="current-password">
-        </div>
-
-        <button type="submit" class="btn-primary-action login-submit" style="margin-top:18px">
-          <span>Masuk & Lanjutkan Lab →</span>
-        </button>
-        <p class="login-error" id="loginError"></p>
-        <p style="text-align:center;font-size:12px;margin-top:10px;color:var(--pensil)">
-          Belum punya akun? <a href="#" id="linkToRegister" style="color:var(--merah-stempel);font-weight:700">Daftar Mandiri di sini</a>
-        </p>
-      </form>
-
-      <!-- 2. Form Registrasi Mandiri Siswa (Awalnya tersembunyi) -->
-      <form id="registerForm" style="display:none">
-        <div class="login-header-group">
-          <div class="login-serial">REF: REG-TJKT-2026/NEW</div>
-          <h2>Registrasi Akun Baru</h2>
-          <p class="login-desc">Daftarkan akun siswa Anda secara mandiri untuk memulai laboratorium keamanan siber dan pencatatan nilai rapor.</p>
-        </div>
-
-        <div class="login-field-wrap">
-          <label for="regStudentName" class="login-label">NAMA LENGKAP / IDENTITAS SISWA:</label>
-          <input id="regStudentName" placeholder="contoh: Ahmad_Fauzi" required minlength="2" maxlength="40">
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
-          <div class="login-field-wrap">
-            <label for="regStudentKelas" class="login-label">KELAS:</label>
-            <input id="regStudentKelas" placeholder="contoh: XII TJKT 1" value="XII TJKT 1" required maxlength="30">
-          </div>
-          <div class="login-field-wrap">
-            <label for="regStudentNisn" class="login-label">NISN (OPSIONAL):</label>
-            <input id="regStudentNisn" placeholder="Nomor Induk Siswa" maxlength="20">
-          </div>
-        </div>
-
-        <div class="login-field-wrap" style="margin-top:12px">
-          <label for="regStudentPassword" class="login-label">BUAT KATA SANDI / PIN (MIN 4 KARAKTER):</label>
-          <input id="regStudentPassword" type="password" placeholder="Sandi rahasia Anda" required minlength="4" maxlength="40" autocomplete="new-password">
-        </div>
-
-        <button type="submit" class="btn-primary-action login-submit" style="margin-top:18px">
-          <span>Daftar Akun & Mulai Belajar →</span>
-        </button>
-        <p class="login-error" id="registerError"></p>
-        <p style="text-align:center;font-size:12px;margin-top:10px;color:var(--pensil)">
-          Sudah punya akun? <a href="#" id="linkToLogin" style="color:var(--merah-stempel);font-weight:700">Masuk di sini</a>
-        </p>
-      </form>
-    </div>
-  </dialog>
-
-  <!-- Dialog Masuk Khusus Guru / Admin -->
-  <dialog id="adminLoginDialog">
-    <form id="adminLoginForm" class="login-dossier-card">
-      <button type="button" class="dialog-close-btn" id="closeAdminDialogTop" title="Tutup">✕</button>
-      <div class="dossier-stamp-top">OTORISASI GURU</div>
-      <div class="login-header-group">
-        <div class="login-serial">PORTAL KHUSUS GURU & KURIKULUM</div>
-        <h2>Panel Pengelolaan & Nilai</h2>
-        <p class="login-desc">Masukkan kata sandi administrator untuk mengelola rapor siswa, generate akun massal, tambah soal, dan konfigurasi database Supabase.</p>
-      </div>
-
-      <div class="login-field-wrap">
-        <label for="adminPassword" class="login-label">KATA SANDI ADMIN / GURU:</label>
-        <input id="adminPassword" type="password" placeholder="Masukkan kata sandi admin..." required autocomplete="current-password">
-      </div>
-
-      <div style="display:flex;gap:10px;margin-top:16px">
-        <button type="submit" class="btn-primary-action login-submit" style="flex:1">
-          <span>Masuk Panel Guru →</span>
-        </button>
-        <button type="button" class="btn-secondary-action" id="closeAdminDialog">
-          <span>Batal</span>
-        </button>
-      </div>
-      <p class="login-error" id="adminLoginError"></p>
-    </form>
-  </dialog>
-
-  <!-- Dialog Ganti Kata Sandi Admin -->
+  <!-- Dialog Ganti Kata Sandi Admin (Hanya di dalam panel admin) -->
   <dialog id="changePasswordDialog">
     <form id="changePasswordForm" class="login-dossier-card">
       <button type="button" class="dialog-close-btn" id="closeChangePassDialog" title="Tutup">✕</button>
@@ -245,6 +139,6 @@
     </form>
   </dialog>
 
-  <script src="/app.js?v=2026.3.2"></script>
+  <script src="/app.js?v=2026.3.3"></script>
 </body>
 </html>

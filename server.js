@@ -36,6 +36,8 @@ function readDB(){
     parsed.users=parsed.users||{};
     parsed.challenges=parsed.challenges||[];
     parsed.solverHistory=parsed.solverHistory||{};
+    parsed.loginAlerts=parsed.loginAlerts||[];
+    parsed.activeSessions=parsed.activeSessions||{};
     parsed.curriculum=parsed.curriculum||JSON.parse(JSON.stringify(defaultCurriculum));
     parsed.examConfig=parsed.examConfig||{
       examMode:false,
@@ -53,6 +55,8 @@ function readDB(){
       challenges:JSON.parse(JSON.stringify(baseChallenges)),
       curriculum:JSON.parse(JSON.stringify(defaultCurriculum)),
       solverHistory:{},
+      loginAlerts:[],
+      activeSessions:{},
       examConfig:{
         examMode:false,
         strictDynamic:false,
@@ -371,25 +375,49 @@ function createStudentToken(name){
   return `stu.${encodeURIComponent(name)}.${ts}.${sig}`;
 }
 
+function getClientInfo(req){
+  const forwarded = req.headers['x-forwarded-for'];
+  const ip = forwarded ? forwarded.split(',')[0].trim() : (req.socket?.remoteAddress || '127.0.0.1');
+  const userAgent = req.headers['user-agent'] || 'Peramban Tidak Dikenal';
+  return { ip, userAgent };
+}
+
 function userFor(req){
   const auth=(req.headers.authorization||'').replace(/^Bearer /,'').trim();
   if(!auth) return null;
-  if(sessions.has(auth)) return sessions.get(auth);
   
-  const parts=auth.split('.');
-  if(parts.length===4 && parts[0]==='stu'){
-    const sName=decodeURIComponent(parts[1]);
-    const ts=Number(parts[2]);
-    const sig=parts[3];
-    if(!isNaN(ts) && (Date.now() - ts < 30 * 24 * 3600 * 1000)){
-      const expected=crypto.createHmac('sha256', APP_SECRET)
-        .update(`student_${sName}_${ts}`)
-        .digest('hex');
-      if(crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))){
-        sessions.set(auth, sName);
-        return sName;
+  let sName = null;
+  if(sessions.has(auth)) {
+    sName = sessions.get(auth);
+  } else {
+    const parts=auth.split('.');
+    if(parts.length===4 && parts[0]==='stu'){
+      const candName=decodeURIComponent(parts[1]);
+      const ts=Number(parts[2]);
+      const sig=parts[3];
+      if(!isNaN(ts) && (Date.now() - ts < 30 * 24 * 3600 * 1000)){
+        const expected=crypto.createHmac('sha256', APP_SECRET)
+          .update(`student_${candName}_${ts}`)
+          .digest('hex');
+        if(crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))){
+          sName = candName;
+          sessions.set(auth, sName);
+        }
       }
     }
+  }
+
+  if(sName){
+    // Penegakan Aturan Sesi Tunggal (Single Active Device per Akun Siswa)
+    const db = readDB();
+    if(db.activeSessions && db.activeSessions[sName]){
+      if(db.activeSessions[sName].token && db.activeSessions[sName].token !== auth){
+        // Sesi ini telah digantikan oleh sesi login lain!
+        sessions.delete(auth);
+        return null;
+      }
+    }
+    return sName;
   }
   return null;
 }
@@ -626,8 +654,19 @@ try{
       }
     }
 
+    const clientInfo=getClientInfo(req);
     const token=createStudentToken(name);
     sessions.set(token, name);
+
+    db.activeSessions = db.activeSessions || {};
+    db.activeSessions[name] = {
+      token,
+      ip: clientInfo.ip,
+      userAgent: clientInfo.userAgent,
+      loginTime: Date.now()
+    };
+    writeDB(db);
+
     return send(res,200,{
       success:true,
       token,
@@ -637,7 +676,7 @@ try{
     });
   }
 
-  // 2. Login Siswa (Dengan Verifikasi Password / PIN dari Supabase)
+  // 2. Login Siswa (Dengan Verifikasi Password & Single Device Session Enforcement)
   if(req.method==='POST'&&url.pathname==='/api/login'){
     const b=await body(req);
     const name=cleanName(b.name);
@@ -672,7 +711,7 @@ try{
     }
 
     if(!studentData){
-      return send(res,404,{error:`Akun "${name}" belum terdaftar. Silakan klik tab "Registrasi Mandiri" untuk mendaftar.`});
+      return send(res,404,{error:`Akun "${name}" belum terdaftar. Silakan lakukan pendaftaran akun siswa baru terlebih dahulu.`});
     }
 
     // 2. Verifikasi Kata Sandi
@@ -691,10 +730,53 @@ try{
       }
     }
 
+    // 3. Deteksi Percobaan Login Ganda (Concurrent Session)
+    const clientInfo = getClientInfo(req);
+    const existingSession = db.activeSessions ? db.activeSessions[name] : null;
+    let isConcurrentAttempt = false;
+
+    if(existingSession && existingSession.token && sessions.has(existingSession.token)){
+      isConcurrentAttempt = true;
+      const alertItem = {
+        id: Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        studentName: name,
+        kelas: studentData.kelas || 'TJKT',
+        prevIp: existingSession.ip || 'Tidak Diketahui',
+        prevUserAgent: existingSession.userAgent || 'Peramban Lama',
+        prevLoginTime: existingSession.loginTime || Date.now(),
+        attemptIp: clientInfo.ip,
+        attemptUserAgent: clientInfo.userAgent,
+        attemptTime: Date.now(),
+        status: 'TERDETEKSI GANDA',
+        action: 'Sesi lama dicabut, sesi baru diaktifkan'
+      };
+
+      db.loginAlerts = db.loginAlerts || [];
+      db.loginAlerts.unshift(alertItem);
+      if(db.loginAlerts.length > 100) db.loginAlerts = db.loginAlerts.slice(0, 100);
+
+      // Cabut token sesi lama
+      sessions.delete(existingSession.token);
+    }
+
     const token=createStudentToken(name);
     sessions.set(token, name);
 
-    return send(res,200,{token,name,kelas:studentData.kelas});
+    db.activeSessions = db.activeSessions || {};
+    db.activeSessions[name] = {
+      token,
+      ip: clientInfo.ip,
+      userAgent: clientInfo.userAgent,
+      loginTime: Date.now()
+    };
+    writeDB(db);
+
+    return send(res,200,{
+      token,
+      name,
+      kelas:studentData.kelas,
+      concurrentWarning: isConcurrentAttempt ? 'Perhatian: Akun ini baru saja login di perangkat lain. Sesi lama telah ditutup dan insiden ini dilaporkan ke Guru Pengawas.' : undefined
+    });
   }
 
   // 3. Status Ujian, Timer & Skor Dinamis (Publik untuk Siswa)
@@ -1525,12 +1607,44 @@ try{
       }));
       return send(res,200,{studentKeys});
     }
+
+    // 10. Ambil Log Peringatan Percobaan Login Ganda (Concurrent Sessions)
+    if(req.method==='GET'&&url.pathname==='/api/admin/login-alerts'){
+      return send(res,200,{
+        alerts: db.loginAlerts || [],
+        activeSessions: Object.entries(db.activeSessions || {}).map(([sName, s])=>({
+          studentName: sName,
+          ip: s.ip,
+          userAgent: s.userAgent,
+          loginTime: s.loginTime
+        }))
+      });
+    }
+
+    // 11. Bersihkan Log Peringatan Login Ganda
+    if(req.method==='POST'&&url.pathname==='/api/admin/login-alerts/clear'){
+      db.loginAlerts = [];
+      writeDB(db);
+      return send(res,200,{success:true,message:'Seluruh riwayat peringatan login ganda berhasil dibersihkan.'});
+    }
+
+    // 12. Putus Sesi Siswa Secara Paksa (Force Logout / Kill Session)
+    if(req.method==='POST'&&url.pathname==='/api/admin/students/kill-session'){
+      const b=await body(req);
+      const targetName=String(b.studentName||'').trim();
+      if(db.activeSessions && db.activeSessions[targetName]){
+        sessions.delete(db.activeSessions[targetName].token);
+        delete db.activeSessions[targetName];
+        writeDB(db);
+      }
+      return send(res,200,{success:true,message:`Sesi aktif siswa "${targetName}" berhasil diputus oleh Guru.`});
+    }
   }
 
   /* ================== STATIC FILES SERVING ================== */
   if(req.method!=='GET') return send(res,405,'Method not allowed','text/plain');
   let p=decodeURIComponent(url.pathname);
-  if(p==='/') p='/index.html';
+  if(p==='/' || p==='/superadmin' || p==='/superadmin/') p='/index.html';
   const full=path.resolve(ROOT,'.'+p);
   if(!full.startsWith(ROOT+path.sep)) return send(res,403,'Forbidden','text/plain');
 
