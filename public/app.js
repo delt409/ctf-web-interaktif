@@ -20,7 +20,14 @@ async function api(url,method='GET',data){
     },
     body:data?JSON.stringify(data):undefined
   });
-  const j=await r.json();
+  if(r.status===401 || r.status===403){
+    if(url.includes('/admin/')){
+      sessionStorage.removeItem('cyber_admin_token');
+      adminToken=null;
+      $('#adminLoginDialog')?.showModal();
+    }
+  }
+  const j=await r.json().catch(()=>({}));
   if(!r.ok) throw Error(j.error||'Permintaan gagal diproses server');
   return j;
 }
@@ -732,7 +739,13 @@ function tantangan(){
       if(j.correct){
         fb.style.display='block';
         fb.className='flag-feedback-msg success';
-        fb.textContent='Kena. Flag valid! Laporan investigasi diterima server.';
+        if(j.isFirstBlood){
+          fb.innerHTML='🩸 <strong>FIRST BLOOD!</strong> Anda adalah orang pertama yang menyelesaikan kasus ini (+30 XP Bonus Kecepatan)!';
+        }else if(j.solverRank>0 && j.solverRank<=5){
+          fb.innerHTML=`⚡ <strong>TOP SPEED SOLVER #${j.solverRank}!</strong> Anda mendapatkan +${j.speedBonus} XP Bonus Kecepatan!`;
+        }else{
+          fb.textContent=j.message||'Kena. Flag valid! Laporan investigasi diterima server.';
+        }
         $('#stampSlot').innerHTML='<span class="stamp-solved-seal">TERPECAHKAN</span>';
         $('#remediationCard').style.display='block';
         $('#remediationText').textContent=c.explain;
@@ -895,8 +908,8 @@ async function admin(){
       <!-- Bilah Sub-Navigasi Admin -->
       <div class="admin-subnav">
         <button class="admin-subtab ${adminSubView==='grades'?'active':''}" data-sub="grades">📊 Rapor & Diagnostik Siswa</button>
-        <button class="admin-subtab ${adminSubView==='exam'?'active':''}" data-sub="exam">🛡️ Mode Ujian & Flag Unik</button>
-        <button class="admin-subtab ${adminSubView==='addCase'?'active':''}" data-sub="addCase">➕ Tambah Kasus Soal CTF</button>
+        <button class="admin-subtab ${adminSubView==='exam'?'active':''}" data-sub="exam">🛡️ Mode Ujian, Timer & Skor</button>
+        <button class="admin-subtab ${adminSubView==='materials'?'active':''}" data-sub="materials">📚 Kelola & Edit Materi</button>
         <button class="admin-subtab ${adminSubView==='accounts'?'active':''}" data-sub="accounts">👥 Generate & Import CSV Akun</button>
         <button class="admin-subtab ${adminSubView==='supabase'?'active':''}" data-sub="supabase">⚡ Koneksi Supabase & Sync</button>
       </div>
@@ -921,6 +934,7 @@ async function admin(){
 
   if(adminSubView==='grades') renderAdminGrades();
   if(adminSubView==='exam') renderAdminExam();
+  if(adminSubView==='materials') renderAdminMaterials();
   if(adminSubView==='addCase') renderAdminAddCase();
   if(adminSubView==='accounts') renderAdminAccounts();
   if(adminSubView==='supabase') renderAdminSupabase();
@@ -1019,13 +1033,62 @@ async function renderAdminGrades(){
                     ${escapeHTML(s.predicate)}
                   </span>
                 </td>
-                <td style="font-size:11px;color:var(--tinta-tubuh);line-height:1.4">${escapeHTML(s.teacherNote)}</td>
+                <td style="font-size:11px;color:var(--tinta-tubuh);line-height:1.4">
+                  <div id="noteDisplay_${i}" style="margin-bottom:6px">
+                    ${s.customTeacherNote ? `<strong style="color:#B45309">✎ Catatan Guru:</strong> ` : ''}${escapeHTML(s.teacherNote)}
+                  </div>
+                  <button class="btn-secondary-action btn-toggle-note" data-idx="${i}" style="font-size:10px;padding:2px 6px">✏️ Tulis / Edit Catatan</button>
+                  <div id="noteEditor_${i}" style="display:none;margin-top:6px">
+                    <textarea id="noteInput_${i}" style="width:100%;font-size:11px;padding:6px;border:1px solid #D97706;border-radius:3px;background:#FFFBEB;font-family:var(--font-kode)" rows="3" placeholder="Tuliskan catatan perbaikan materi untuk ${escapeHTML(s.name)}...">${escapeHTML(s.customTeacherNote || '')}</textarea>
+                    <div style="display:flex;gap:4px;margin-top:4px">
+                      <button class="btn-save-note" data-idx="${i}" data-name="${escapeHTML(s.name)}">Simpan Catatan</button>
+                      <button class="btn-secondary-action btn-cancel-note" data-idx="${i}" style="font-size:10px;padding:2px 6px">Batal</button>
+                    </div>
+                  </div>
+                </td>
               </tr>
             `).join(''):`<tr><td colspan="9" style="text-align:center;padding:20px">Belum ada data siswa terdaftar.</td></tr>`}
           </tbody>
         </table>
       </div>
     `;
+
+    document.querySelectorAll('.btn-toggle-note').forEach(b=>{
+      b.onclick=()=>{
+        const idx=b.dataset.idx;
+        $(`#noteEditor_${idx}`).style.display='block';
+        b.style.display='none';
+      };
+    });
+
+    document.querySelectorAll('.btn-cancel-note').forEach(b=>{
+      b.onclick=()=>{
+        const idx=b.dataset.idx;
+        $(`#noteEditor_${idx}`).style.display='none';
+        document.querySelector(`.btn-toggle-note[data-idx="${idx}"]`).style.display='inline-block';
+      };
+    });
+
+    document.querySelectorAll('.btn-save-note').forEach(b=>{
+      b.onclick=async()=>{
+        const idx=b.dataset.idx;
+        const sName=b.dataset.name;
+        const noteVal=$(`#noteInput_${idx}`).value.trim();
+        b.disabled=true;
+        b.textContent='Menyimpan...';
+        try{
+          await api('/api/admin/student/notes','POST',{studentName:sName,note:noteVal});
+          $(`#noteDisplay_${idx}`).innerHTML=(noteVal ? `<strong style="color:#B45309">✎ Catatan Guru:</strong> ` : '') + escapeHTML(noteVal || 'Catatan berhasil diperbarui.');
+          $(`#noteEditor_${idx}`).style.display='none';
+          document.querySelector(`.btn-toggle-note[data-idx="${idx}"]`).style.display='inline-block';
+        }catch(e){
+          alert('Gagal menyimpan catatan: '+e.message);
+        }finally{
+          b.disabled=false;
+          b.textContent='Simpan Catatan';
+        }
+      };
+    });
 
     $('#btnExportGradesCSV').onclick=()=>{
       let csvContent="No,Nama Siswa,NISN,Kelas,Nilai Akhir,Predikat,Kompetensi Linux (%),Kompetensi Jaringan (%),Kompetensi Cyber (%),Catatan Diagnostik Guru\n";
@@ -1054,10 +1117,14 @@ async function renderAdminExam(){
   try{
     const cfgRes=await api('/api/admin/exam-config');
     const keysRes=await api('/api/admin/exam-keys');
-    const examCfg=cfgRes.examConfig||{examMode:false,strictDynamic:false};
+    const examCfg=cfgRes.examConfig||{examMode:false,strictDynamic:false,timerMinutes:60,dynamicScoring:true,maxBonusSolvers:5};
     const studentKeys=keysRes.studentKeys||[];
 
+    const isTimerRunning = examCfg.examEndTime && (examCfg.examEndTime > Date.now());
+    const remainingMins = isTimerRunning ? Math.ceil((examCfg.examEndTime - Date.now()) / 60000) : 0;
+
     slot.innerHTML=`
+      <!-- Banner Mode Ujian -->
       <div class="exam-mode-banner">
         <div>
           <h3 style="font-family:var(--font-judul);font-size:20px;margin:0 0 4px;color:#92400E">
@@ -1076,15 +1143,82 @@ async function renderAdminExam(){
         </div>
       </div>
 
-      <div class="dossier-card dossier-card-white" style="margin-bottom:24px">
-        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-family:var(--font-kode);font-size:13px">
+      <!-- Kartu Pengaturan Timer Ujian & Pengerjaan Soal -->
+      <div class="dossier-card dossier-card-white" style="margin-bottom:20px;border-left:4px solid #DC2626">
+        <h4 style="font-family:var(--font-judul);font-size:16px;margin:0 0 8px;display:flex;align-items:center;gap:8px">
+          ⏳ Fitur Timer Pengerjaan Ujian (Batas Waktu Otomatis)
+        </h4>
+        <p style="font-size:12px;color:var(--pensil);margin:0 0 14px">
+          Atur batas durasi pengerjaan ujian. Jika waktu habis, sistem otomatis mengunci form pengiriman flag siswa dan menandai sesi ujian telah selesai.
+        </p>
+
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <label style="font-family:var(--font-kode);font-size:12px;font-weight:700">DURASI UJIAN:</label>
+            <input type="number" id="inputTimerMinutes" value="${examCfg.timerMinutes || 60}" min="5" max="360" style="width:80px;padding:6px;border:1.5px solid var(--tinta-pekat);border-radius:var(--radius);font-family:var(--font-kode)">
+            <span style="font-size:12px;font-weight:700">Menit</span>
+          </div>
+
+          <div style="display:flex;gap:8px">
+            <button class="btn-primary-action" id="btnStartTimer" style="font-size:11px;padding:8px 14px;background:#B91C1C">
+              ${isTimerRunning ? '🔄 Perpanjang / Reset Timer' : '▶️ Mulai Countdown Timer Ujian'}
+            </button>
+            ${isTimerRunning ? `
+              <button class="btn-secondary-action" id="btnStopTimer" style="font-size:11px;padding:8px 14px">
+                ⏹️ Hentikan Timer
+              </button>
+            ` : ''}
+          </div>
+
+          <div style="margin-left:auto;font-family:var(--font-kode);font-size:12px">
+            STATUS: ${isTimerRunning ? `<strong style="color:#DC2626">⏳ BERJALAN (Sisa: ±${remainingMins} menit)</strong>` : '<span style="color:var(--pensil)">Timer Mati</span>'}
+          </div>
+        </div>
+
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-family:var(--font-kode);font-size:12px">
           <input type="checkbox" id="chkStrictDynamic" ${examCfg.strictDynamic?'checked':''}>
-          <strong>Terapkan Flag Unik Ketat (Strict):</strong> Hanya menerima flag dinamis siswa, abaikan jawaban umum standar.
+          <strong>Terapkan Flag Unik Ketat (Strict):</strong> Hanya menerima flag dinamis siswa, tolak flag statis umum.
         </label>
-        <button class="btn-primary-action" id="btnSaveExamConfig" style="margin-top:14px;font-size:12px">
-          Simpan Setelan Mode Ujian
-        </button>
-        <span id="examSaveMsg" style="margin-left:10px;font-family:var(--font-kode);font-size:11px"></span>
+      </div>
+
+      <!-- Kartu Pengaturan Skor Dinamis (First Blood & Kecepatan) -->
+      <div class="dossier-card dossier-card-white" style="margin-bottom:24px;border-left:4px solid #D97706">
+        <h4 style="font-family:var(--font-judul);font-size:16px;margin:0 0 8px;display:flex;align-items:center;gap:8px">
+          ⚡ Pengaturan Skor Dinamis (First Blood & Penjawab Tercepat)
+        </h4>
+        <p style="font-size:12px;color:var(--pensil);margin:0 0 14px">
+          Memberikan penghargaan bagi siswa yang menjawab lebih cepat. Siswa tercepat mendapatkan bonus poin tertinggi, semakin terakhir menjawab skor berkurang secara adil.
+        </p>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:14px">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-family:var(--font-kode);font-size:12px">
+            <input type="checkbox" id="chkDynamicScoring" ${examCfg.dynamicScoring !== false ? 'checked' : ''}>
+            <strong>Aktifkan Skor Dinamis Kecepatan</strong>
+          </label>
+
+          <div style="display:flex;align-items:center;gap:8px">
+            <label style="font-family:var(--font-kode);font-size:12px">Jumlah Penjawab Bonus:</label>
+            <input type="number" id="inputMaxBonusSolvers" value="${examCfg.maxBonusSolvers || 5}" min="1" max="10" style="width:60px;padding:6px;border:1.5px solid var(--tinta-pekat);border-radius:var(--radius);font-family:var(--font-kode)">
+            <span style="font-size:12px">orang pertama</span>
+          </div>
+        </div>
+
+        <div style="font-size:11px;color:var(--pensil);line-height:1.5;background:#FFFBEB;padding:10px;border-radius:var(--radius);border:1px dashed #D97706">
+          <strong>Skema Bonus Kecepatan:</strong><br>
+          • Penjawab #1 (🩸 First Blood): Poin Penuh + 30 XP Bonus Kecepatan<br>
+          • Penjawab #2: Poin Penuh + 20 XP Bonus<br>
+          • Penjawab #3: Poin Penuh + 15 XP Bonus<br>
+          • Penjawab #4: Poin Penuh + 10 XP Bonus<br>
+          • Penjawab #5: Poin Penuh + 5 XP Bonus<br>
+          • Penjawab #6 dst: Poin dasar normal
+        </div>
+
+        <div style="margin-top:16px">
+          <button class="btn-primary-action" id="btnSaveExamConfig" style="font-size:12px">
+            Simpan Seluruh Pengaturan Ujian
+          </button>
+          <span id="examSaveMsg" style="margin-left:10px;font-family:var(--font-kode);font-size:11px"></span>
+        </div>
       </div>
 
       <h3 style="font-family:var(--font-judul);font-size:18px;margin:24px 0 10px">Kunci Jawaban Flag Ujian per Siswa (Pegangan Guru)</h3>
@@ -1095,27 +1229,27 @@ async function renderAdminExam(){
               <th style="width:40px">NO</th>
               <th>NAMA SISWA</th>
               <th>KELAS</th>
-              <th>KUNCI FLAG KASUS #001 SUID</th>
-              <th>KUNCI FLAG KASUS #003 KNOCK</th>
-              <th>KUNCI FLAG KASUS #006 MALWARE</th>
-              <th>KUNCI FLAG KASUS #015 GTFO</th>
+              <th>KUNCI FLAG KASUS #001</th>
+              <th>KUNCI FLAG KASUS #002</th>
+              <th>KUNCI FLAG KASUS #003</th>
+              <th>KUNCI FLAG KASUS #012 (UART)</th>
             </tr>
           </thead>
           <tbody>
             ${studentKeys.length?studentKeys.map((s,i)=>{
               const f1=s.flags.find(f=>f.id===1)?.flag||'-';
+              const f2=s.flags.find(f=>f.id===2)?.flag||'-';
               const f3=s.flags.find(f=>f.id===3)?.flag||'-';
-              const f6=s.flags.find(f=>f.id===6)?.flag||'-';
-              const f15=s.flags.find(f=>f.id===15)?.flag||'-';
+              const f12=s.flags.find(f=>f.id===12)?.flag||'-';
               return `
                 <tr>
                   <td>${i+1}</td>
                   <td><strong>${escapeHTML(s.name)}</strong></td>
                   <td>${escapeHTML(s.kelas)}</td>
                   <td><code>${f1}</code></td>
+                  <td><code>${f2}</code></td>
                   <td><code>${f3}</code></td>
-                  <td><code>${f6}</code></td>
-                  <td><code>${f15}</code></td>
+                  <td><code>${f12}</code></td>
                 </tr>
               `;
             }).join(''):`<tr><td colspan="7" style="text-align:center;padding:16px">Belum ada siswa terdaftar.</td></tr>`}
@@ -1128,8 +1262,18 @@ async function renderAdminExam(){
       try{
         const isExam=$('#chkExamMode').checked;
         const isStrict=$('#chkStrictDynamic').checked;
-        await api('/api/admin/exam-config','POST',{examMode:isExam,strictDynamic:isStrict});
-        $('#examSaveMsg').textContent='✓ Pengaturan ujian berhasil diperbarui!';
+        const isDynScoring=$('#chkDynamicScoring').checked;
+        const maxBonus=Number($('#inputMaxBonusSolvers').value)||5;
+        const timerMins=Number($('#inputTimerMinutes').value)||60;
+
+        await api('/api/admin/exam-config','POST',{
+          examMode:isExam,
+          strictDynamic:isStrict,
+          dynamicScoring:isDynScoring,
+          maxBonusSolvers:maxBonus,
+          timerMinutes:timerMins
+        });
+        $('#examSaveMsg').textContent='✓ Pengaturan ujian berhasil disimpan!';
         $('#examSaveMsg').style.color='#166534';
         await refresh();
       }catch(e){
@@ -1138,8 +1282,294 @@ async function renderAdminExam(){
       }
     };
 
+    $('#btnStartTimer').onclick=async()=>{
+      try{
+        const timerMins=Number($('#inputTimerMinutes').value)||60;
+        await api('/api/admin/exam-config','POST',{
+          examMode: true,
+          action: 'start_timer',
+          timerMinutes: timerMins
+        });
+        alert(`Countdown timer ujian sebesar ${timerMins} menit berhasil dimulai!`);
+        renderAdminExam();
+      }catch(e){
+        alert('Gagal memulai timer: '+e.message);
+      }
+    };
+
+    if($('#btnStopTimer')){
+      $('#btnStopTimer').onclick=async()=>{
+        try{
+          await api('/api/admin/exam-config','POST',{
+            action: 'stop_timer'
+          });
+          alert('Timer ujian dihentikan.');
+          renderAdminExam();
+        }catch(e){
+          alert('Gagal menghentikan timer: '+e.message);
+        }
+      };
+    }
+
   }catch(err){
     slot.innerHTML=`<div class="flag-feedback-msg danger">Gagal memuat mode ujian: ${err.message}</div>`;
+  }
+}
+
+/* SUB 3: KELOLA & EDIT MATERI / SOAL (DATABASE MANAGEMENT) */
+async function renderAdminMaterials(){
+  const slot=$('#adminContentSlot');
+  slot.innerHTML='Memuat daftar materi dari database...';
+  try{
+    const j=await api('/api/admin/materials');
+    const materials=j.materials||[];
+
+    slot.innerHTML=`
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px">
+        <div>
+          <h3 style="font-family:var(--font-judul);font-size:20px;margin:0 0 4px">Daftar Materi & Kasus CTF di Database</h3>
+          <p style="font-size:12px;color:var(--pensil);margin:0">Semua materi tersimpan di database dan dapat diperbarui sewaktu-waktu oleh Guru.</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-primary-action" id="btnAdminAddNewMaterial" style="font-size:11px">➕ Buat Materi Baru</button>
+          <button class="btn-secondary-action" id="btnAdminResetMaterials" style="font-size:11px">🔄 Reset ke 15 Kasus Bawaan</button>
+        </div>
+      </div>
+
+      <!-- Modal / Form Editor Materi (Awalnya tersembunyi) -->
+      <div id="materialEditorCard" class="dossier-card dossier-card-white" style="display:none;margin-bottom:24px;border:2px solid var(--merah-stempel)">
+        <h4 id="editorTitle" style="font-family:var(--font-judul);font-size:18px;margin:0 0 14px">Edit Materi Kasus</h4>
+        <form id="formSaveMaterial">
+          <input type="hidden" id="editMatId">
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div class="admin-form-group">
+              <label>JUDUL MATERI / KASUS:</label>
+              <input id="editMatTitle" required>
+            </div>
+            <div class="admin-form-group">
+              <label>KATEGORI:</label>
+              <select id="editMatCategory">
+                <option value="Linux">Linux (Administrasi Server)</option>
+                <option value="Jaringan">Jaringan (Protokol & Firewall)</option>
+                <option value="Cyber">Cyber (Web & Kripto)</option>
+                <option value="Hardware">Hardware (IoT & Serial)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div class="admin-form-group">
+              <label>TINGKAT KESULITAN:</label>
+              <select id="editMatDifficulty">
+                <option value="Dasar (Low)">Dasar (Low)</option>
+                <option value="Sedang (Medium)">Sedang (Medium)</option>
+                <option value="Sulit (High)">Sulit (High)</option>
+              </select>
+            </div>
+            <div class="admin-form-group">
+              <label>POIN XP:</label>
+              <input id="editMatPoints" type="number" min="50" max="1000" required>
+            </div>
+          </div>
+
+          <div class="admin-form-group">
+            <label>PENJELASAN TEORI MATERI (LESSON):</label>
+            <textarea id="editMatLesson" rows="4" required></textarea>
+          </div>
+
+          <div class="admin-form-group">
+            <label>NASKAH NARASI AUDIO GURU (AUDIO TEXT):</label>
+            <textarea id="editMatAudio" rows="2" placeholder="Teks yang akan dibacakan oleh narator suara..."></textarea>
+          </div>
+
+          <div class="admin-form-group">
+            <label>PERTANYAAN TUGAS KASUS (TASK):</label>
+            <input id="editMatTask" required>
+          </div>
+
+          <div class="admin-form-group">
+            <label>KUNCI JAWABAN / FLAG RESMI (Pisahkan koma jika ada alternatif):</label>
+            <input id="editMatAnswers" required>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div class="admin-form-group">
+              <label>PETUNJUK (HINT):</label>
+              <input id="editMatHint">
+            </div>
+            <div class="admin-form-group">
+              <label>PENJELASAN SOLUSI SAAT TUNTAS (EXPLAIN):</label>
+              <input id="editMatExplain">
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <button type="submit" class="btn-primary-action">💾 Simpan Perubahan ke Database</button>
+            <button type="button" class="btn-secondary-action" id="btnCancelEditMat">Batal</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Filter & Pencarian Materi -->
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <input type="text" id="searchMaterialInput" placeholder="🔍 Cari judul materi atau tugas..." style="flex:1;min-width:200px;padding:8px 12px;border:1.5px solid var(--tinta-pekat);border-radius:var(--radius);font-family:var(--font-kode);font-size:12px">
+        <select id="filterCategorySelect" style="padding:8px;border:1.5px solid var(--tinta-pekat);border-radius:var(--radius);font-family:var(--font-kode);font-size:12px">
+          <option value="ALL">Semua Kategori</option>
+          <option value="Linux">Linux</option>
+          <option value="Jaringan">Jaringan</option>
+          <option value="Cyber">Cyber</option>
+          <option value="Hardware">Hardware</option>
+        </select>
+      </div>
+
+      <!-- Daftar Card Materi -->
+      <div id="materialsListSlot"></div>
+    `;
+
+    function renderMaterialsList(items){
+      const listSlot=$('#materialsListSlot');
+      if(!items.length){
+        listSlot.innerHTML='<div style="padding:20px;text-align:center;color:var(--pensil);background:#fff;border:1.5px dashed var(--tinta-pekat);border-radius:var(--radius)">Tidak ada materi yang sesuai dengan pencarian.</div>';
+        return;
+      }
+      listSlot.innerHTML=items.map(m=>`
+        <div class="material-item-card">
+          <div class="material-item-info">
+            <h4>#${m.id}. ${escapeHTML(m.title)}</h4>
+            <p>
+              <span class="meta-tag">${escapeHTML(m.category)}</span>
+              <span class="meta-tag">${escapeHTML(m.difficulty)}</span>
+              <span class="meta-tag" style="background:#FEF3C7;color:#92400E;font-weight:700">${m.points} XP</span>
+            </p>
+            <p style="margin-top:6px;color:var(--tinta-tubuh);font-size:12px">
+              <strong>Tugas:</strong> ${escapeHTML(m.task)}
+            </p>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="btn-primary-action btn-edit-mat" data-id="${m.id}" style="font-size:11px;padding:6px 12px">✏️ Edit Materi</button>
+            <button class="btn-secondary-action btn-del-mat" data-id="${m.id}" style="font-size:11px;padding:6px 12px;color:var(--merah-stempel)">🗑️ Hapus</button>
+          </div>
+        </div>
+      `).join('');
+
+      listSlot.querySelectorAll('.btn-edit-mat').forEach(b=>{
+        b.onclick=()=>{
+          const mId=Number(b.dataset.id);
+          const m=materials.find(x=>x.id===mId);
+          if(!m) return;
+          $('#editMatId').value=m.id;
+          $('#editMatTitle').value=m.title||'';
+          $('#editMatCategory').value=m.category||'Linux';
+          $('#editMatDifficulty').value=m.difficulty||'Dasar (Low)';
+          $('#editMatPoints').value=m.points||100;
+          $('#editMatLesson').value=m.lesson||'';
+          $('#editMatAudio').value=m.audioText||'';
+          $('#editMatTask').value=m.task||'';
+          $('#editMatAnswers').value=Array.isArray(m.answers)?m.answers.join(', '):(m.answers||'');
+          $('#editMatHint').value=m.hint||'';
+          $('#editMatExplain').value=m.explain||'';
+          $('#editorTitle').textContent=`Edit Materi #${m.id}: ${m.title}`;
+          $('#materialEditorCard').style.display='block';
+          $('#materialEditorCard').scrollIntoView({behavior:'smooth'});
+        };
+      });
+
+      listSlot.querySelectorAll('.btn-del-mat').forEach(b=>{
+        b.onclick=async()=>{
+          const mId=Number(b.dataset.id);
+          if(confirm(`Yakin ingin menghapus materi #${mId}?`)){
+            try{
+              await api('/api/admin/challenges/delete','POST',{id:mId});
+              renderAdminMaterials();
+              await refresh();
+            }catch(e){
+              alert('Gagal menghapus materi: '+e.message);
+            }
+          }
+        };
+      });
+    }
+
+    renderMaterialsList(materials);
+
+    function applyFilter(){
+      const q=($('#searchMaterialInput')?.value||'').toLowerCase().trim();
+      const cat=$('#filterCategorySelect')?.value||'ALL';
+      const filtered=materials.filter(m=>{
+        const matchQ=!q || (m.title||'').toLowerCase().includes(q) || (m.task||'').toLowerCase().includes(q) || String(m.id).includes(q);
+        const matchCat=(cat==='ALL') || m.category===cat;
+        return matchQ && matchCat;
+      });
+      renderMaterialsList(filtered);
+    }
+
+    $('#searchMaterialInput').oninput=applyFilter;
+    $('#filterCategorySelect').onchange=applyFilter;
+
+    $('#btnAdminAddNewMaterial').onclick=()=>{
+      const nextId=Math.max(0, ...materials.map(m=>m.id)) + 1;
+      $('#editMatId').value=nextId;
+      $('#editMatTitle').value='';
+      $('#editMatCategory').value='Linux';
+      $('#editMatDifficulty').value='Sedang (Medium)';
+      $('#editMatPoints').value=150;
+      $('#editMatLesson').value='';
+      $('#editMatAudio').value='';
+      $('#editMatTask').value='';
+      $('#editMatAnswers').value='';
+      $('#editMatHint').value='';
+      $('#editMatExplain').value='';
+      $('#editorTitle').textContent=`Tambah Materi Baru #${nextId}`;
+      $('#materialEditorCard').style.display='block';
+      $('#materialEditorCard').scrollIntoView({behavior:'smooth'});
+    };
+
+    $('#btnCancelEditMat').onclick=()=>{
+      $('#materialEditorCard').style.display='none';
+    };
+
+    $('#formSaveMaterial').onsubmit=async e=>{
+      e.preventDefault();
+      try{
+        const payload={
+          id: Number($('#editMatId').value),
+          title: $('#editMatTitle').value,
+          category: $('#editMatCategory').value,
+          difficulty: $('#editMatDifficulty').value,
+          points: Number($('#editMatPoints').value),
+          lesson: $('#editMatLesson').value,
+          audioText: $('#editMatAudio').value,
+          task: $('#editMatTask').value,
+          answers: $('#editMatAnswers').value,
+          hint: $('#editMatHint').value,
+          explain: $('#editMatExplain').value
+        };
+        await api('/api/admin/challenges/save','POST',payload);
+        alert('Materi berhasil disimpan ke database!');
+        $('#materialEditorCard').style.display='none';
+        renderAdminMaterials();
+        await refresh();
+      }catch(err){
+        alert('Gagal menyimpan materi: '+err.message);
+      }
+    };
+
+    $('#btnAdminResetMaterials').onclick=async()=>{
+      if(confirm('Yakin ingin mereset seluruh materi ke 15 kasus bawaan standard?')){
+        try{
+          await api('/api/admin/challenges/reset','POST');
+          alert('Materi berhasil direset ke standar.');
+          renderAdminMaterials();
+          await refresh();
+        }catch(e){
+          alert('Gagal mereset materi: '+e.message);
+        }
+      }
+    };
+
+  }catch(err){
+    slot.innerHTML=`<div class="flag-feedback-msg danger">Gagal memuat materi: ${err.message}</div>`;
   }
 }
 
@@ -1496,30 +1926,99 @@ $('#logout').onclick=()=>{
   location.reload();
 };
 
-$('#loginForm').onsubmit=async e=>{
-  e.preventDefault();
-  try{
-    const studentName=$('#studentName').value;
-    const studentKelas=$('#studentKelas')?.value||'XII TJKT 1';
-    const j=await fetch('/api/login',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name:studentName,kelas:studentKelas})
-    }).then(async r=>{
-      const resData=await r.json();
-      if(!r.ok) throw Error(resData.error);
-      return resData;
-    });
-    token=j.token;
-    name=j.name;
-    sessionStorage.setItem('cyber_token',token);
-    sessionStorage.setItem('cyber_name',name);
-    $('#loginDialog').close();
-    await refresh();
-  }catch(err){
-    $('#loginError').textContent=err.message;
-  }
-};
+// Tab Switch Autentikasi Siswa: Masuk vs Registrasi
+const tabBtnLogin = $('#tabBtnLogin');
+const tabBtnRegister = $('#tabBtnRegister');
+const loginForm = $('#loginForm');
+const registerForm = $('#registerForm');
+
+function showLoginForm(){
+  tabBtnLogin?.classList.add('active');
+  tabBtnRegister?.classList.remove('active');
+  if(loginForm) loginForm.style.display='block';
+  if(registerForm) registerForm.style.display='none';
+}
+
+function showRegisterForm(){
+  tabBtnRegister?.classList.add('active');
+  tabBtnLogin?.classList.remove('active');
+  if(registerForm) registerForm.style.display='block';
+  if(loginForm) loginForm.style.display='none';
+}
+
+if(tabBtnLogin) tabBtnLogin.onclick = showLoginForm;
+if(tabBtnRegister) tabBtnRegister.onclick = showRegisterForm;
+if($('#linkToRegister')) $('#linkToRegister').onclick = (e)=>{e.preventDefault(); showRegisterForm();};
+if($('#linkToLogin')) $('#linkToLogin').onclick = (e)=>{e.preventDefault(); showLoginForm();};
+
+if(loginForm){
+  loginForm.onsubmit=async e=>{
+    e.preventDefault();
+    const errSlot=$('#loginError');
+    if(errSlot) errSlot.textContent='';
+    try{
+      const studentName=$('#studentName').value.trim();
+      const studentPassword=$('#studentPassword').value;
+      const j=await fetch('/api/login',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({name:studentName,password:studentPassword})
+      }).then(async r=>{
+        const resData=await r.json();
+        if(!r.ok){
+          if(r.status===404){
+            $('#regStudentName').value=studentName;
+            showRegisterForm();
+          }
+          throw Error(resData.error);
+        }
+        return resData;
+      });
+      token=j.token;
+      name=j.name;
+      sessionStorage.setItem('cyber_token',token);
+      sessionStorage.setItem('cyber_name',name);
+      $('#loginDialog').close();
+      await refresh();
+    }catch(err){
+      if(errSlot) errSlot.textContent=err.message;
+    }
+  };
+}
+
+if(registerForm){
+  registerForm.onsubmit=async e=>{
+    e.preventDefault();
+    const errSlot=$('#registerError');
+    if(errSlot) errSlot.textContent='';
+    try{
+      const sName=$('#regStudentName').value.trim();
+      const sKelas=$('#regStudentKelas').value.trim();
+      const sNisn=$('#regStudentNisn')?.value.trim()||'';
+      const sPassword=$('#regStudentPassword').value;
+
+      const j=await fetch('/api/register',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({name:sName,password:sPassword,kelas:sKelas,nisn:sNisn})
+      }).then(async r=>{
+        const resData=await r.json();
+        if(!r.ok) throw Error(resData.error);
+        return resData;
+      });
+
+      token=j.token;
+      name=j.name;
+      sessionStorage.setItem('cyber_token',token);
+      sessionStorage.setItem('cyber_name',name);
+      $('#loginDialog').close();
+      alert(`Selamat datang di CyberLab CTF, ${name}! Akun Anda berhasil terdaftar.`);
+      await refresh();
+    }catch(err){
+      if(errSlot) errSlot.textContent=err.message;
+    }
+  };
+}
 
 $('#adminLoginForm').onsubmit=async e=>{
   e.preventDefault();
@@ -1547,6 +2046,43 @@ $('#adminLoginForm').onsubmit=async e=>{
 $('#closeAdminDialog').onclick=()=>{
   $('#adminLoginDialog').close();
 };
+
+async function checkExamTimer(){
+  try{
+    const st=await fetch('/api/exam-status').then(r=>r.json());
+    const badge=$('#examTimerBadge');
+    const cd=$('#timerCountdown');
+    if(!badge || !cd) return;
+
+    if(st.examMode && st.examEndTime){
+      badge.style.display='inline-flex';
+      if(st.isExpired){
+        badge.className='exam-timer-badge ended';
+        cd.textContent='WAKTU TELAH HABIS';
+        const submitBtn=$('#btnSubmitFlag');
+        if(submitBtn){
+          submitBtn.disabled=true;
+          submitBtn.textContent='🔒 Waktu Ujian Telah Berakhir';
+        }
+      }else{
+        const rem=st.remainingSeconds||0;
+        const mins=Math.floor(rem/60);
+        const secs=rem%60;
+        cd.textContent=`${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+        if(rem<300){
+          badge.className='exam-timer-badge';
+        }else{
+          badge.className='exam-timer-badge warning';
+        }
+      }
+    }else{
+      badge.style.display='none';
+    }
+  }catch{}
+}
+
+setInterval(checkExamTimer, 1000);
+checkExamTimer();
 
 if(token&&name){
   refresh().catch(()=>{$('#loginDialog').showModal()});

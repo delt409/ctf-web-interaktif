@@ -326,11 +326,33 @@ function readDB(){
     const raw=fs.readFileSync(DATA_FILE,'utf8');
     const parsed=JSON.parse(raw);
     parsed.users=parsed.users||{};
-    parsed.customChallenges=parsed.customChallenges||[];
-    parsed.examConfig=parsed.examConfig||{examMode:false,strictDynamic:false};
+    parsed.challenges=parsed.challenges||[];
+    parsed.solverHistory=parsed.solverHistory||{};
+    parsed.examConfig=parsed.examConfig||{
+      examMode:false,
+      strictDynamic:false,
+      timerMinutes:60,
+      examEndTime:null,
+      isExamLocked:false,
+      dynamicScoring:true,
+      maxBonusSolvers:5
+    };
     return parsed;
   }catch{
-    return {users:{},customChallenges:[],examConfig:{examMode:false,strictDynamic:false}};
+    return {
+      users:{},
+      challenges:[],
+      solverHistory:{},
+      examConfig:{
+        examMode:false,
+        strictDynamic:false,
+        timerMinutes:60,
+        examEndTime:null,
+        isExamLocked:false,
+        dynamicScoring:true,
+        maxBonusSolvers:5
+      }
+    };
   }
 }
 
@@ -418,14 +440,14 @@ async function supabaseRequest(endpoint, method='GET', bodyData=null){
   });
 }
 
-// Menggabungkan Tantangan Bawaan + Kustom dari DB / Supabase
+// Mengambil Tantangan & Materi dari Database (Tersimpan & Bisa Diupdate)
 function getAllChallenges(){
   const db=readDB();
-  const customs=db.customChallenges||[];
-  const map=new Map();
-  baseChallenges.forEach(c=>map.set(c.id,c));
-  customs.forEach(c=>map.set(c.id,c));
-  return Array.from(map.values()).sort((a,b)=>a.id-b.id);
+  if(!Array.isArray(db.challenges) || db.challenges.length === 0){
+    db.challenges = JSON.parse(JSON.stringify(baseChallenges));
+    writeDB(db);
+  }
+  return db.challenges.sort((a,b)=>a.id-b.id);
 }
 
 function send(res,status,data,type='application/json; charset=utf-8'){
@@ -455,17 +477,74 @@ function cleanName(s){
   return typeof s==='string'&&/^[\p{L}\p{N} _.-]{2,40}$/u.test(s.trim())?s.trim():null;
 }
 
+const APP_SECRET = process.env.APP_SECRET || (ADMIN_SECRET + '_app_salt_2026');
 const sessions=new Map();
 const adminSessions=new Set();
 
+function hashPassword(pwd){
+  if(!pwd) return '';
+  return crypto.createHmac('sha256', APP_SECRET).update(String(pwd)).digest('hex');
+}
+
+function createStudentToken(name){
+  const ts=Date.now();
+  const sig=crypto.createHmac('sha256', APP_SECRET)
+    .update(`student_${name}_${ts}`)
+    .digest('hex');
+  return `stu.${encodeURIComponent(name)}.${ts}.${sig}`;
+}
+
 function userFor(req){
-  const token=(req.headers.authorization||'').replace(/^Bearer /,'');
-  return sessions.get(token);
+  const auth=(req.headers.authorization||'').replace(/^Bearer /,'').trim();
+  if(!auth) return null;
+  if(sessions.has(auth)) return sessions.get(auth);
+  
+  const parts=auth.split('.');
+  if(parts.length===4 && parts[0]==='stu'){
+    const sName=decodeURIComponent(parts[1]);
+    const ts=Number(parts[2]);
+    const sig=parts[3];
+    if(!isNaN(ts) && (Date.now() - ts < 30 * 24 * 3600 * 1000)){
+      const expected=crypto.createHmac('sha256', APP_SECRET)
+        .update(`student_${sName}_${ts}`)
+        .digest('hex');
+      if(crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))){
+        sessions.set(auth, sName);
+        return sName;
+      }
+    }
+  }
+  return null;
+}
+
+function createAdminToken(){
+  const ts=Date.now();
+  const sig=crypto.createHmac('sha256', ADMIN_SECRET)
+    .update(`admin_${ts}`)
+    .digest('hex');
+  return `adm.${ts}.${sig}`;
 }
 
 function isAdmin(req){
-  const token=(req.headers.authorization||'').replace(/^Bearer /,'');
-  return adminSessions.has(token);
+  const auth=(req.headers.authorization||'').replace(/^Bearer /,'').trim();
+  if(!auth) return false;
+  if(adminSessions.has(auth)) return true;
+
+  const parts=auth.split('.');
+  if(parts.length===3 && parts[0]==='adm'){
+    const ts=Number(parts[1]);
+    const sig=parts[2];
+    if(!isNaN(ts) && (Date.now() - ts < 7 * 24 * 3600 * 1000)){
+      const expected=crypto.createHmac('sha256', ADMIN_SECRET)
+        .update(`admin_${ts}`)
+        .digest('hex');
+      if(crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))){
+        adminSessions.add(auth);
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 // Kalkulasi Penilaian & Pemetaan Kompetensi TJKT
@@ -526,14 +605,16 @@ function calculateStudentAnalytics(db, challengesList){
 
     if(hwPct>=100) strengths.push('Hardware & Serial Console');
 
-    let teacherNote='';
+    let autoTeacherNote='';
     if(strengths.length && !weaknesses.length){
-      teacherNote=`Siswa sangat menguasai bidang ${strengths.join(' dan ')}. Siap untuk materi tingkat mahir atau sertifikasi kejuruan.`;
+      autoTeacherNote=`Siswa sangat menguasai bidang ${strengths.join(' dan ')}. Siap untuk materi tingkat mahir atau sertifikasi kejuruan.`;
     }else if(strengths.length){
-      teacherNote=`Kuat pada ${strengths.join(', ')}. Disarankan pendampingan pada aspek ${weaknesses.join(', ')}.`;
+      autoTeacherNote=`Kuat pada ${strengths.join(', ')}. Disarankan pendampingan pada aspek ${weaknesses.join(', ')}.`;
     }else{
-      teacherNote='Perlu penguatan konsep dasar pada perintah Linux dan analisis protokol jaringan.';
+      autoTeacherNote='Perlu penguatan konsep dasar pada perintah Linux dan analisis protokol jaringan.';
     }
+
+    const customTeacherNote = (p.teacherNote || p.notes || '').trim();
 
     results.push({
       name,
@@ -541,7 +622,8 @@ function calculateStudentAnalytics(db, challengesList){
       nisn: p.nisn || '-',
       solvedCount: solvedIds.length,
       totalCases: challengesList.length,
-      score: userScore,
+      score: p.score || userScore,
+      speedBonus: p.speedBonus || 0,
       totalXP,
       finalGrade,
       predicate,
@@ -553,7 +635,9 @@ function calculateStudentAnalytics(db, challengesList){
       },
       strengths,
       weaknesses,
-      teacherNote,
+      teacherNote: customTeacherNote || autoTeacherNote,
+      customTeacherNote,
+      autoTeacherNote,
       attempts: p.attempts||0
     });
   }
@@ -570,32 +654,142 @@ try{
 
   /* ================== PUBLIC APIS ================== */
 
-  // 1. Login Siswa
-  if(req.method==='POST'&&url.pathname==='/api/login'){
-    const b=await body(req), name=cleanName(b.name);
-    if(!name) return send(res,400,{error:'Nama siswa harus 2–40 karakter alfanumerik.'});
-    
-    const token=crypto.randomBytes(24).toString('hex');
-    sessions.set(token,name);
-    
+  // 1. Registrasi Akun Siswa Mandiri
+  if(req.method==='POST'&&url.pathname==='/api/register'){
+    const b=await body(req);
+    const name=cleanName(b.name);
+    if(!name) return send(res,400,{error:'Nama siswa harus 2–40 karakter (alfanumerik/spasi).'});
+    if(!b.password || String(b.password).length < 4){
+      return send(res,400,{error:'Kata sandi / PIN keamanan minimal 4 karakter.'});
+    }
+
     let db=readDB();
-    db.users[name]??={solved:[],attempts:0,kelas:b.kelas||'TJKT',nisn:b.nisn||''};
+    if(db.users[name]){
+      return send(res,409,{error:`Nama "${name}" sudah terdaftar! Silakan login atau pilih nama lain.`});
+    }
+
+    const passwordHash = hashPassword(b.password);
+    db.users[name] = {
+      passwordHash,
+      kelas: b.kelas || 'TJKT',
+      nisn: b.nisn || '',
+      solved: [],
+      attempts: 0,
+      score: 0,
+      speedBonus: 0,
+      teacherNote: '',
+      createdAt: new Date().toISOString()
+    };
     writeDB(db);
 
-    // Sinkronisasi background ke Supabase jika aktif
+    const supabaseCfg=readSupabaseConfig();
+    if(supabaseCfg.enabled){
+      supabaseRequest('ctf_students?on_conflict=name','POST',[{
+        name,
+        password_hash: passwordHash,
+        kelas: db.users[name].kelas,
+        nisn: db.users[name].nisn,
+        solved: [],
+        attempts: 0,
+        score: 0,
+        speed_bonus: 0,
+        notes: '',
+        last_active: new Date().toISOString()
+      }]).catch(err=>console.warn('Supabase register sync error:',err.message));
+    }
+
+    const token=createStudentToken(name);
+    sessions.set(token, name);
+    return send(res,200,{
+      success:true,
+      token,
+      name,
+      kelas: db.users[name].kelas,
+      message:'Registrasi akun siswa berhasil!'
+    });
+  }
+
+  // 2. Login Siswa (Dengan Verifikasi Password / PIN)
+  if(req.method==='POST'&&url.pathname==='/api/login'){
+    const b=await body(req);
+    const name=cleanName(b.name);
+    if(!name) return send(res,400,{error:'Nama siswa harus 2–40 karakter alfanumerik.'});
+    
+    let db=readDB();
+    const existing = db.users[name];
+
+    if(!existing){
+      if(b.password && String(b.password).length >= 4){
+        db.users[name] = {
+          passwordHash: hashPassword(b.password),
+          kelas: b.kelas || 'TJKT',
+          nisn: b.nisn || '',
+          solved: [],
+          attempts: 0,
+          score: 0,
+          speedBonus: 0,
+          teacherNote: '',
+          createdAt: new Date().toISOString()
+        };
+        writeDB(db);
+      } else {
+        return send(res,404,{error:`Akun "${name}" belum terdaftar. Silakan pilih tab "Registrasi Mandiri".`});
+      }
+    } else {
+      if(existing.passwordHash){
+        if(!b.password || hashPassword(b.password) !== existing.passwordHash){
+          return send(res,401,{error:'Kata sandi / PIN keamanan salah.'});
+        }
+      } else if(b.password && String(b.password).length >= 4){
+        existing.passwordHash = hashPassword(b.password);
+        writeDB(db);
+      }
+    }
+
+    const token=createStudentToken(name);
+    sessions.set(token, name);
+
     const supabaseCfg=readSupabaseConfig();
     if(supabaseCfg.enabled){
       supabaseRequest('ctf_students?on_conflict=name','POST',[{
         name,
         kelas: db.users[name].kelas,
         nisn: db.users[name].nisn,
-        solved: db.users[name].solved,
-        attempts: db.users[name].attempts,
+        solved: db.users[name].solved || [],
+        attempts: db.users[name].attempts || 0,
+        score: db.users[name].score || 0,
         last_active: new Date().toISOString()
-      }]).catch(err=>console.warn('Supabase auto-sync siswa warning:',err.message));
+      }]).catch(()=>{});
     }
 
     return send(res,200,{token,name,kelas:db.users[name].kelas});
+  }
+
+  // 3. Status Ujian, Timer & Skor Dinamis (Publik untuk Siswa)
+  if(req.method==='GET'&&url.pathname==='/api/exam-status'){
+    const db=readDB();
+    const cfg=db.examConfig||{examMode:false};
+    let remainingSeconds=0;
+    let isExpired=false;
+    if(cfg.examMode && cfg.examEndTime){
+      const diff=Math.floor((cfg.examEndTime - Date.now()) / 1000);
+      if(diff <= 0){
+        remainingSeconds = 0;
+        isExpired = true;
+      } else {
+        remainingSeconds = diff;
+      }
+    }
+    return send(res,200,{
+      examMode: !!cfg.examMode,
+      strictDynamic: !!cfg.strictDynamic,
+      timerMinutes: cfg.timerMinutes || 60,
+      examEndTime: cfg.examEndTime,
+      remainingSeconds,
+      isExpired: isExpired || !!cfg.isExamLocked,
+      dynamicScoring: cfg.dynamicScoring !== false,
+      maxBonusSolvers: cfg.maxBonusSolvers || 5
+    });
   }
 
   // 2. Info Kurikulum, Tujuan Pembelajaran & Manfaat TJKT
@@ -669,6 +863,18 @@ try{
 
     // Submit Jawaban Flag
     if(req.method==='POST'&&url.pathname==='/api/submit'){
+      const examCfg=db.examConfig||{examMode:false,strictDynamic:false};
+      
+      // 1. Verifikasi Batas Waktu Ujian
+      if(examCfg.examMode && examCfg.examEndTime){
+        if(Date.now() > examCfg.examEndTime || examCfg.isExamLocked){
+          return send(res,403,{
+            error:'Waktu pengerjaan ujian telah berakhir! Pengiriman flag dinonaktifkan.',
+            isExpired: true
+          });
+        }
+      }
+
       const b=await body(req);
       const c=allChalls.find(x=>x.id===Number(b.id));
       if(!c||typeof b.answer!=='string'||b.answer.length>200) return send(res,400,{error:'Jawaban tidak valid.'});
@@ -680,7 +886,6 @@ try{
       progress.attempts++;
       const submitted=b.answer.trim().toLowerCase();
       const validList=(c.answers||(c.answer?[c.answer]:[])).map(a=>String(a).trim().toLowerCase());
-      const examCfg=db.examConfig||{examMode:false,strictDynamic:false};
       const dynamicFlag=getStudentDynamicFlag(name, c.id).toLowerCase();
 
       let correct=false;
@@ -694,8 +899,50 @@ try{
         correct = (validList.includes(submitted) || submitted === dynamicFlag);
       }
 
+      let solverRank=0;
+      let pointsAwarded=0;
+      let speedBonus=0;
+      let isFirstBlood=false;
+
       if(correct){
         progress.solved.push(c.id);
+
+        // Dynamic Scoring & Speed Bonus
+        db.solverHistory = db.solverHistory || {};
+        db.solverHistory[c.id] = db.solverHistory[c.id] || [];
+        solverRank = db.solverHistory[c.id].length + 1;
+        const basePoints = c.points || 100;
+
+        if(examCfg.dynamicScoring !== false){
+          if(solverRank === 1){
+            speedBonus = 30; // First Blood bonus!
+            isFirstBlood = true;
+          } else if(solverRank === 2){
+            speedBonus = 20;
+          } else if(solverRank === 3){
+            speedBonus = 15;
+          } else if(solverRank === 4){
+            speedBonus = 10;
+          } else if(solverRank === 5){
+            speedBonus = 5;
+          } else {
+            speedBonus = 0;
+          }
+          pointsAwarded = basePoints + speedBonus;
+        } else {
+          pointsAwarded = basePoints;
+        }
+
+        db.solverHistory[c.id].push({
+          studentName: name,
+          rank: solverRank,
+          points: pointsAwarded,
+          speedBonus,
+          time: new Date().toISOString()
+        });
+
+        progress.score = (progress.score || 0) + pointsAwarded;
+        progress.speedBonus = (progress.speedBonus || 0) + speedBonus;
       }
       writeDB(db);
 
@@ -705,6 +952,8 @@ try{
         supabaseRequest('ctf_students?name=eq.'+encodeURIComponent(name),'PATCH',{
           solved: progress.solved,
           attempts: progress.attempts,
+          score: progress.score || 0,
+          speed_bonus: progress.speedBonus || 0,
           last_active: new Date().toISOString()
         }).catch(err=>console.warn('Supabase submit sync warning:',err.message));
 
@@ -713,11 +962,26 @@ try{
           challenge_id: c.id,
           submitted_answer: b.answer.trim(),
           is_correct: correct,
+          solver_rank: solverRank,
+          points_awarded: pointsAwarded,
           submitted_at: new Date().toISOString()
         }]).catch(err=>console.warn('Supabase log submission warning:',err.message));
       }
 
-      return send(res,200,{correct,explain:correct?c.explain:undefined,progress});
+      return send(res,200,{
+        correct,
+        explain: correct ? c.explain : undefined,
+        pointsAwarded,
+        solverRank,
+        speedBonus,
+        isFirstBlood,
+        message: isFirstBlood
+          ? '🩸 FIRST BLOOD! Anda penjawab pertama (+30 XP Bonus Kecepatan)!'
+          : (solverRank > 0 && solverRank <= 5)
+            ? `⚡ Penjawab ke-${solverRank} tercepat (+${speedBonus} XP Bonus)!`
+            : (correct ? '✓ Flag valid! Analisis Anda berhasil.' : '✕ Flag belum tepat.'),
+        progress
+      });
     }
 
     // Papan Peringkat Siswa
@@ -739,7 +1003,7 @@ try{
   if(req.method==='POST'&&url.pathname==='/api/admin/login'){
     const b=await body(req);
     if(b.password===ADMIN_SECRET){
-      const token='adm_'+crypto.randomBytes(24).toString('hex');
+      const token=createAdminToken();
       adminSessions.add(token);
       return send(res,200,{success:true,token,message:'Otorisasi Guru berhasil.'});
     }
@@ -769,7 +1033,8 @@ try{
       const b=await body(req);
       if(!b.title || !b.task || !b.answer) return send(res,400,{error:'Judul, Tugas, dan Jawaban wajib diisi.'});
 
-      const nextId=Math.max(0, ...allChalls.map(c=>c.id)) + 1;
+      db.challenges = getAllChallenges();
+      const nextId=Math.max(0, ...db.challenges.map(c=>c.id)) + 1;
       const newChallenge={
         id: nextId,
         topic: b.topic || 'Linux Kustom',
@@ -789,14 +1054,14 @@ try{
         explain: b.explain || 'Jawaban benar telah diverifikasi oleh sistem.'
       };
 
-      db.customChallenges=db.customChallenges||[];
-      db.customChallenges.push(newChallenge);
+      db.challenges.push(newChallenge);
+      db.challenges.sort((a,b)=>a.id-b.id);
       writeDB(db);
 
       // Sinkronisasi ke Supabase jika aktif
       const supabaseCfg=readSupabaseConfig();
       if(supabaseCfg.enabled){
-        supabaseRequest('ctf_challenges','POST',[{
+        supabaseRequest('ctf_challenges?on_conflict=id','POST',[{
           id: newChallenge.id,
           topic: newChallenge.topic,
           category: newChallenge.category,
@@ -805,6 +1070,8 @@ try{
           points: newChallenge.points,
           summary: newChallenge.summary,
           lesson: newChallenge.lesson,
+          details: newChallenge.details,
+          audio_text: newChallenge.audioText,
           task: newChallenge.task,
           answers: newChallenge.answers,
           hint: newChallenge.hint,
@@ -971,20 +1238,165 @@ try{
       }
     }
 
-    // 7. Pengaturan Mode Ujian & Flag Dinamis
+    // 7. Pengaturan Mode Ujian, Timer & Dynamic Scoring
     if(req.method==='GET'&&url.pathname==='/api/admin/exam-config'){
-      const examCfg=db.examConfig||{examMode:false,strictDynamic:false};
-      return send(res,200,{examConfig:examCfg});
+      const examCfg=db.examConfig||{
+        examMode:false,
+        strictDynamic:false,
+        timerMinutes:60,
+        examEndTime:null,
+        isExamLocked:false,
+        dynamicScoring:true,
+        maxBonusSolvers:5
+      };
+      let remainingSeconds=0;
+      let isExpired=false;
+      if(examCfg.examMode && examCfg.examEndTime){
+        const diff=Math.floor((examCfg.examEndTime - Date.now()) / 1000);
+        if(diff <= 0){
+          remainingSeconds = 0;
+          isExpired = true;
+        } else {
+          remainingSeconds = diff;
+        }
+      }
+      return send(res,200,{examConfig:{...examCfg, remainingSeconds, isExpired}});
     }
 
     if(req.method==='POST'&&url.pathname==='/api/admin/exam-config'){
       const b=await body(req);
+      const prev=db.examConfig||{};
+      
+      let endTime = prev.examEndTime;
+      if(b.action === 'start_timer'){
+        const mins = Number(b.timerMinutes) || 60;
+        endTime = Date.now() + (mins * 60 * 1000);
+      } else if(b.action === 'stop_timer' || b.action === 'reset_timer'){
+        endTime = null;
+      }
+
       db.examConfig={
-        examMode: !!b.examMode,
-        strictDynamic: !!b.strictDynamic
+        examMode: b.examMode !== undefined ? !!b.examMode : !!prev.examMode,
+        strictDynamic: b.strictDynamic !== undefined ? !!b.strictDynamic : !!prev.strictDynamic,
+        timerMinutes: Number(b.timerMinutes) || prev.timerMinutes || 60,
+        examEndTime: endTime,
+        isExamLocked: !!b.isExamLocked,
+        dynamicScoring: b.dynamicScoring !== undefined ? !!b.dynamicScoring : true,
+        maxBonusSolvers: Number(b.maxBonusSolvers) || 5
       };
       writeDB(db);
+
+      const supabaseCfg=readSupabaseConfig();
+      if(supabaseCfg.enabled){
+        supabaseRequest('ctf_exam_settings?on_conflict=id','POST',[{
+          id: 'default_exam',
+          settings: db.examConfig,
+          updated_at: new Date().toISOString()
+        }]).catch(()=>{});
+      }
+
       return send(res,200,{success:true,examConfig:db.examConfig});
+    }
+
+    // 8. Kelola Materi & Soal (Database Management)
+    if(req.method==='GET'&&url.pathname==='/api/admin/materials'){
+      return send(res,200,{materials:allChalls});
+    }
+
+    if(req.method==='POST'&&url.pathname==='/api/admin/challenges/save'){
+      const b=await body(req);
+      const id=Number(b.id);
+      if(!id || !b.title || !b.task){
+        return send(res,400,{error:'ID kasus, Judul, dan Pertanyaan Tugas wajib diisi.'});
+      }
+
+      db.challenges = getAllChallenges();
+      const existingIdx = db.challenges.findIndex(c=>c.id===id);
+
+      const challData = {
+        id,
+        topic: b.topic || 'Umum',
+        category: b.category || 'Linux',
+        title: b.title.trim(),
+        difficulty: b.difficulty || 'Dasar (Low)',
+        points: Number(b.points) || 100,
+        summary: b.summary || '',
+        lesson: b.lesson || '',
+        details: Array.isArray(b.details) ? b.details : (typeof b.details === 'string' ? JSON.parse(b.details || '[]') : []),
+        audioText: b.audioText || `${b.title}. ${b.lesson} Tugas: ${b.task}`,
+        task: b.task.trim(),
+        answers: Array.isArray(b.answers) ? b.answers : String(b.answers || '').split(',').map(s=>s.trim()).filter(Boolean),
+        hint: b.hint || '',
+        explain: b.explain || ''
+      };
+
+      if(existingIdx >= 0){
+        db.challenges[existingIdx] = challData;
+      } else {
+        db.challenges.push(challData);
+      }
+      db.challenges.sort((a,b)=>a.id-b.id);
+      writeDB(db);
+
+      const supabaseCfg=readSupabaseConfig();
+      if(supabaseCfg.enabled){
+        supabaseRequest('ctf_challenges?on_conflict=id','POST',[{
+          id: challData.id,
+          topic: challData.topic,
+          category: challData.category,
+          title: challData.title,
+          difficulty: challData.difficulty,
+          points: challData.points,
+          summary: challData.summary,
+          lesson: challData.lesson,
+          details: challData.details,
+          audio_text: challData.audioText,
+          task: challData.task,
+          answers: challData.answers,
+          hint: challData.hint,
+          explain: challData.explain
+        }]).catch(err=>console.warn('Supabase challenge save warning:',err.message));
+      }
+
+      return send(res,200,{success:true,challenge:challData,message:'Materi dan kasus berhasil disimpan ke database!'});
+    }
+
+    if(req.method==='POST'&&url.pathname==='/api/admin/challenges/delete'){
+      const b=await body(req);
+      const id=Number(b.id);
+      db.challenges = getAllChallenges().filter(c=>c.id!==id);
+      writeDB(db);
+
+      const supabaseCfg=readSupabaseConfig();
+      if(supabaseCfg.enabled){
+        supabaseRequest(`ctf_challenges?id=eq.${id}`,'DELETE').catch(()=>{});
+      }
+      return send(res,200,{success:true,message:`Materi ID ${id} berhasil dihapus.`});
+    }
+
+    if(req.method==='POST'&&url.pathname==='/api/admin/challenges/reset'){
+      db.challenges = JSON.parse(JSON.stringify(baseChallenges));
+      writeDB(db);
+      return send(res,200,{success:true,message:'Seluruh materi berhasil direset ke 15 kasus bawaan standard.'});
+    }
+
+    // 9. Simpan Catatan Khusus Guru (Evaluasi & Peningkatan Siswa)
+    if(req.method==='POST'&&url.pathname==='/api/admin/student/notes'){
+      const b=await body(req);
+      const sName=b.studentName;
+      if(!sName || !db.users[sName]) return send(res,404,{error:'Data siswa tidak ditemukan.'});
+
+      db.users[sName].teacherNote = String(b.note || '').trim();
+      writeDB(db);
+
+      const supabaseCfg=readSupabaseConfig();
+      if(supabaseCfg.enabled){
+        supabaseRequest(`ctf_students?name=eq.${encodeURIComponent(sName)}`,'PATCH',{
+          notes: db.users[sName].teacherNote
+        }).catch(err=>console.warn('Sync note warning:',err.message));
+      }
+
+      return send(res,200,{success:true,studentName:sName,teacherNote:db.users[sName].teacherNote});
     }
 
     // 8. Kunci Jawaban Flag Ujian Unik per Siswa
