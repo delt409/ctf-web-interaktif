@@ -387,21 +387,30 @@ User student may run the following:
       </div>
     </div>
 
-    <!-- Grid Seluruh 15 Kasus -->
-    <h3 style="font-family:var(--font-judul);font-size:22px;margin:32px 0 16px">Daftar Berkas Kasus Lapangan TJKT</h3>
+    <!-- Grid Seluruh 60 Kasus -->
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin:32px 0 16px">
+      <h3 style="font-family:var(--font-judul);font-size:22px;margin:0">Daftar Berkas Kasus Lapangan TJKT (${challenges.length} Kasus di Database)</h3>
+      <div style="font-size:12px;color:var(--pensil)">Klik kartu untuk langsung menuju investigasi meja kasus.</div>
+    </div>
     <div class="case-index-grid">
       ${challenges.map(x=>{
         const isSolved=progress.solved.includes(x.id);
         const padId=String(x.id).padStart(3,'0');
         return `
           <div class="case-folder-card ${x.id===selected?'active-selected':''}" data-jump="${x.id}">
-            <span class="case-folder-serial">#${padId}</span>
-            <span class="meta-tag">${escapeHTML(x.topic)}</span>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <span class="case-folder-serial">#${padId}</span>
+              <span class="meta-tag" style="font-size:10px">${escapeHTML(x.category||'Linux')}</span>
+            </div>
+            <span class="meta-tag" style="background:none;border-color:var(--merah-stempel);color:var(--merah-stempel)">${escapeHTML(x.topic)}</span>
             <div class="case-folder-title">${escapeHTML(x.title)}</div>
-            <p class="case-folder-desc">${escapeHTML(x.summary||x.lesson.slice(0,85)+'...')}</p>
+            <p class="case-folder-desc" style="margin:6px 0 8px">${escapeHTML(x.summary||(x.lesson?x.lesson.slice(0,85)+'...':''))}</p>
+            <div style="background:rgba(0,0,0,0.03);border-left:2.5px solid var(--tinta-pekat);padding:6px 8px;font-size:11px;color:var(--tinta-pekat);margin-bottom:10px;line-height:1.4">
+              <strong>Tugas:</strong> ${escapeHTML(x.task)}
+            </div>
             <div class="case-folder-footer">
               <span class="meta-tag" style="background:none;border-color:var(--pensil)">${x.difficulty} • ${x.points} XP</span>
-              ${isSolved?'<span class="stamp-classified" style="border-color:#2F7F20;color:#2F7F20">SELESAI</span>':'<span class="stamp-classified">BUKA KASUS →</span>'}
+              ${isSolved?'<span class="stamp-classified" style="border-color:#2F7F20;color:#2F7F20">SELESAI ✓</span>':'<span class="stamp-classified">BUKA KASUS →</span>'}
             </div>
           </div>
         `;
@@ -474,19 +483,36 @@ async function tujuan(){
 
         <!-- Capaian & Tujuan Pembelajaran (TP-01 s/d TP-05) -->
         <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid var(--tinta-pekat);padding-bottom:8px">
-          <h3 style="font-family:var(--font-judul);font-size:20px;margin:0">
-            🎯 Capaian & Tujuan Pembelajaran (Elemen Kompetensi TJKT)
-          </h3>
+          <div>
+            <h3 style="font-family:var(--font-judul);font-size:20px;margin:0">
+              🎯 Capaian & Tujuan Pembelajaran (Elemen Kompetensi TJKT)
+            </h3>
+            <p style="font-size:12px;color:var(--pensil);margin:4px 0 0">Setiap elemen kompetensi terhubung langsung ke modul 60 kasus di database.</p>
+          </div>
           ${adminToken ? `<button class="btn-secondary-action" onclick="adminSubView='curriculum';view='admin';render();" style="font-size:10px">✏️ Kelola TP</button>` : ''}
         </div>
         <div class="curriculum-grid" style="margin-top:16px">
-          ${(j.tujuanPembelajaran||[]).map(tp=>`
-            <div class="curriculum-card ${tp.bidang.toLowerCase().includes('linux')?'linux-pillar':tp.bidang.toLowerCase().includes('jaringan')?'network-pillar':tp.bidang.toLowerCase().includes('hardware')?'hardware-pillar':'cyber-pillar'}">
-              <span class="pillar-code">${tp.kode} // ${escapeHTML(tp.bidang)}</span>
-              <div class="curriculum-title">${escapeHTML(tp.bidang)}</div>
-              <p style="margin:0;font-size:13px;color:var(--tinta-tubuh);line-height:1.6">${escapeHTML(tp.deskripsi)}</p>
-            </div>
-          `).join('')}
+          ${(j.tujuanPembelajaran||[]).map(tp=>{
+            const isLinux = tp.bidang.toLowerCase().includes('linux');
+            const isNet = tp.bidang.toLowerCase().includes('jaringan');
+            const isHw = tp.bidang.toLowerCase().includes('hardware');
+            const pilarClass = isLinux?'linux-pillar':isNet?'network-pillar':isHw?'hardware-pillar':'cyber-pillar';
+            const catTarget = isLinux?'Linux':isNet?'Jaringan':isHw?'Hardware':'Cyber';
+            const caseRange = isLinux?'Kasus #001 s/d #020':isNet?'Kasus #021 s/d #040':isHw?'Kasus #056 s/d #060':'Kasus #041 s/d #055';
+            return `
+              <div class="curriculum-card ${pilarClass}">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                  <span class="pillar-code">${tp.kode} // ${escapeHTML(tp.bidang)}</span>
+                  <span class="meta-tag" style="font-size:9px">${caseRange}</span>
+                </div>
+                <div class="curriculum-title">${escapeHTML(tp.bidang)}</div>
+                <p style="margin:0 0 12px;font-size:13px;color:var(--tinta-tubuh);line-height:1.6">${escapeHTML(tp.deskripsi)}</p>
+                <button class="btn-secondary-action btn-go-pillar-mat" data-cat="${catTarget}" style="font-size:10px;padding:4px 10px;width:100%">
+                  Lihat Modul ${escapeHTML(tp.bidang)} →
+                </button>
+              </div>
+            `;
+          }).join('')}
         </div>
 
         <!-- Matriks Jenjang Level Materi (Low, Medium, High) -->
@@ -511,6 +537,17 @@ async function tujuan(){
         </div>
       </div>
     `;
+
+    document.querySelectorAll('.btn-go-pillar-mat').forEach(b=>{
+      b.onclick=()=>{
+        activeCategoryFilter=b.dataset.cat||'all';
+        const matchCase = challenges.find(x=>(x.category||'Linux')===activeCategoryFilter);
+        if(matchCase) selected=matchCase.id;
+        view='materi';
+        render();
+        window.scrollTo({top:0,behavior:'smooth'});
+      };
+    });
 
     if($('#btnEditCurriculumDirect')){
       $('#btnEditCurriculumDirect').onclick=()=>{
@@ -602,56 +639,80 @@ function materi(){
     <!-- Filter & Pencarian Materi 60 Kasus -->
     <div style="margin:36px 0 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
       <div>
-        <h3 style="font-family:var(--font-judul);font-size:20px;margin:0 0 4px">Arsip Pedoman Seluruh Modul (${challenges.length} Kasus)</h3>
-        <p style="font-size:12px;color:var(--pensil);margin:0">Saring berdasarkan pilar kompetensi TJKT atau cari materi langsung.</p>
+        <h3 style="font-family:var(--font-judul);font-size:20px;margin:0 0 4px">Daftar Modul Materi & Kasus CTF (${challenges.length} Kasus di Database)</h3>
+        <p style="font-size:12px;color:var(--pensil);margin:0">Arsip materi resmi dan penugasan lapangan sinkron dengan database.</p>
       </div>
       <div>
-        <input id="materiSearchInput" placeholder="🔍 Cari judul/konsep materi..." value="${escapeHTML(materiSearchQuery)}" style="padding:7px 12px;font-size:12px;border:1.5px solid var(--tinta-pekat);border-radius:var(--radius);background:var(--kertas);min-width:260px">
+        <input id="materiSearchInput" placeholder="🔍 Cari judul materi atau tugas..." value="${escapeHTML(materiSearchQuery)}" style="padding:8px 12px;font-size:12px;border:1.5px solid var(--tinta-pekat);border-radius:var(--radius);background:var(--kertas);min-width:280px;font-family:var(--font-kode)">
       </div>
     </div>
 
     <!-- Filter Pills Kategori -->
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px">
       ${['all','Linux','Jaringan','Cyber','Hardware'].map(cat=>{
         const count = cat==='all' ? challenges.length : challenges.filter(x=>(x.category||'Linux')===cat).length;
-        const labels = {all:'Semua', Linux:'Linux & Server', Jaringan:'Jaringan & Firewall', Cyber:'Cyber & Kripto', Hardware:'Hardware & IoT'};
+        const labels = {all:'Semua Modul', Linux:'Linux & Server', Jaringan:'Jaringan & Firewall', Cyber:'Cyber & Kripto', Hardware:'Hardware & IoT'};
         const active = activeCategoryFilter === cat;
         return `
-          <button class="btn-secondary-action btn-mat-cat-filter" data-cat="${cat}" style="${active?'background:var(--tinta-pekat);color:#fff;border-color:var(--tinta-pekat)':''};font-size:11px;padding:5px 12px">
+          <button class="btn-secondary-action btn-mat-cat-filter" data-cat="${cat}" style="${active?'background:var(--tinta-pekat);color:#fff;border-color:var(--tinta-pekat)':''};font-size:11px;padding:6px 12px">
             ${labels[cat]||cat} (${count})
           </button>
         `;
       }).join('')}
     </div>
 
-    <!-- Grid Kartu Materi Terfilter -->
-    <div class="case-index-grid">
+    <!-- Daftar Item Materi Format Standar Sinkron dengan Admin -->
+    <div id="studentMaterialsListSlot" style="display:grid;gap:12px">
       ${(()=>{
         const q=materiSearchQuery.toLowerCase().trim();
         const filtered=challenges.filter(x=>{
           const matchCat = activeCategoryFilter==='all' || (x.category||'Linux')===activeCategoryFilter;
-          const matchQ = !q || (x.title||'').toLowerCase().includes(q) || (x.topic||'').toLowerCase().includes(q) || (x.lesson||'').toLowerCase().includes(q);
+          const matchQ = !q || (x.title||'').toLowerCase().includes(q) || (x.topic||'').toLowerCase().includes(q) || (x.task||'').toLowerCase().includes(q) || (x.lesson||'').toLowerCase().includes(q) || String(x.id).includes(q);
           return matchCat && matchQ;
         });
 
         if(filtered.length===0){
-          return `<div class="dossier-card dossier-card-white" style="grid-column:1/-1;text-align:center;padding:24px;color:var(--pensil)">Tidak ditemukan materi yang cocok dengan pencarian.</div>`;
+          return `<div class="dossier-card dossier-card-white" style="text-align:center;padding:28px;color:var(--pensil);border:1.5px dashed var(--tinta-pekat)">
+            Tidak ditemukan materi yang cocok dengan pencarian "${escapeHTML(materiSearchQuery)}".
+            <div style="margin-top:10px">
+              <button class="btn-secondary-action" onclick="activeCategoryFilter='all';materiSearchQuery='';materi();" style="font-size:11px">Reset Filter & Tampilkan Semua</button>
+            </div>
+          </div>`;
         }
 
-        return filtered.map(x=>`
-          <div class="case-folder-card ${x.id===selected?'active-selected':''}" data-mat="${x.id}">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-              <span class="case-folder-serial">#${String(x.id).padStart(3,'0')}</span>
-              <span class="meta-tag" style="font-size:10px">${escapeHTML(x.category||'Linux')}</span>
+        return filtered.map(m=>{
+          const isSolvedItem=progress.solved.includes(m.id);
+          const isCurrentSelected=m.id===selected;
+          return `
+            <div class="material-item-card ${isCurrentSelected?'active-selected':''}" style="${isCurrentSelected?'border:2px solid var(--merah-stempel);background:#FFFDF7;box-shadow:0 0 0 2px rgba(185,28,28,0.15)':''}">
+              <div class="material-item-info" style="flex:1">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                  <h4 style="margin:0;font-size:16px;color:var(--tinta-pekat)">#${m.id}. ${escapeHTML(m.title)}</h4>
+                  ${isSolvedItem?'<span class="meta-tag" style="background:#ECFDF5;color:#059669;border-color:#059669;font-weight:700">✓ TERPECAHKAN</span>':'<span class="meta-tag" style="background:#FEF3C7;color:#92400E">BELUM TUNTAS</span>'}
+                  ${isCurrentSelected?'<span class="meta-tag" style="background:var(--merah-stempel);color:#fff;border-color:var(--merah-stempel)">SEDANG DIBUKA</span>':''}
+                </div>
+                <p style="margin:6px 0 0">
+                  <span class="meta-tag">${escapeHTML(m.category||'Linux')}</span>
+                  <span class="meta-tag">${escapeHTML(m.difficulty||'Dasar (Low)')}</span>
+                  <span class="meta-tag" style="background:#FEF3C7;color:#92400E;font-weight:700">${m.points} XP</span>
+                  <span class="meta-tag" style="background:none;border-color:var(--pensil);color:var(--pensil)">${escapeHTML(m.topic||'Umum')}</span>
+                </p>
+                <p style="margin-top:8px;color:var(--tinta-tubuh);font-size:13px;line-height:1.55">
+                  <strong>Tugas:</strong> ${escapeHTML(m.task)}
+                </p>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <button class="btn-secondary-action btn-open-mat-detail" data-id="${m.id}" style="font-size:11px;padding:7px 12px">
+                  ${isCurrentSelected?'▲ Sedang Dibaca':'📖 Buka Berkas'}
+                </button>
+                <button class="btn-primary-action btn-jump-bench" data-id="${m.id}" style="font-size:11px;padding:7px 12px">
+                  🚀 Ke Meja Kasus →
+                </button>
+                ${adminToken ? `<button class="btn-secondary-action btn-quick-admin-edit" data-id="${m.id}" style="font-size:11px;padding:7px 10px;color:var(--merah-stempel)">✏️ Edit (Admin)</button>` : ''}
+              </div>
             </div>
-            <span class="meta-tag" style="background:none;border-color:var(--merah-stempel);color:var(--merah-stempel)">${escapeHTML(x.topic)}</span>
-            <div class="case-folder-title" style="font-size:15px;margin-top:6px">${escapeHTML(x.title)}</div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
-              <span class="meta-tag" style="background:none">${x.points} XP • ${escapeHTML(x.difficulty||'Low')}</span>
-              <span class="btn-secondary-action" style="padding:4px 8px;font-size:10px">${x.id===selected?'Sedang Dibuka':'Buka Berkas'}</span>
-            </div>
-          </div>
-        `).join('');
+          `;
+        }).join('');
       })()}
     </div>
   `;
@@ -696,12 +757,35 @@ function materi(){
     };
   });
 
-  document.querySelectorAll('[data-mat]').forEach(el=>{
+  document.querySelectorAll('.btn-open-mat-detail').forEach(el=>{
     el.onclick=()=>{
       stopAudio();
-      selected=Number(el.dataset.mat);
+      selected=Number(el.dataset.id);
       materi();
       window.scrollTo({top:0,behavior:'smooth'});
+    };
+  });
+
+  document.querySelectorAll('.btn-jump-bench').forEach(el=>{
+    el.onclick=()=>{
+      stopAudio();
+      selected=Number(el.dataset.id);
+      view='tantangan';
+      render();
+      window.scrollTo({top:0,behavior:'smooth'});
+    };
+  });
+
+  document.querySelectorAll('.btn-quick-admin-edit').forEach(el=>{
+    el.onclick=()=>{
+      const targetId=Number(el.dataset.id);
+      adminSubView='materials';
+      view='admin';
+      render();
+      setTimeout(()=>{
+        const btnEdit=document.querySelector(`.btn-edit-mat[data-id="${targetId}"]`);
+        if(btnEdit) btnEdit.click();
+      },100);
     };
   });
 }
@@ -722,6 +806,12 @@ function tantangan(){
     }).catch(()=>{});
     return;
   }
+
+  // Jika kategori kasus yang dipilih tidak cocok dengan filter aktif, sinkronkan ke 'all' agar kasus selalu tampak di bilah navigasi
+  if(activeCategoryFilter!=='all' && c.category && c.category!==activeCategoryFilter){
+    activeCategoryFilter='all';
+  }
+
   const isSolved=progress.solved.includes(c.id);
   const padId=String(c.id).padStart(3,'0');
 
@@ -2551,6 +2641,10 @@ async function initApp(){
     const pub = await fetch('/api/public/challenges').then(r=>r.json()).catch(()=>null);
     if(pub && Array.isArray(pub.challenges) && pub.challenges.length>0){
       challenges = pub.challenges;
+      if(!challenges.some(c=>c.id===selected)){
+        selected = challenges[0].id;
+      }
+      render();
     }
   }catch(e){}
 

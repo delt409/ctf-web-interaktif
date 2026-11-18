@@ -156,8 +156,8 @@ function getAllChallenges(){
   if(!Array.isArray(db.challenges) || db.challenges.length === 0){
     db.challenges = JSON.parse(JSON.stringify(baseChallenges));
     changed = true;
-  } else if (db.challenges.length < baseChallenges.length) {
-    // Sinkronkan 60 kasus dari baseChallenges yang belum ada di database lokal
+  } else {
+    // Sinkronkan seluruh 60 kasus dari baseChallenges yang belum ada di database lokal
     const existingIds = new Set(db.challenges.map(c => c.id));
     for (const b of baseChallenges) {
       if (!existingIds.has(b.id)) {
@@ -180,34 +180,31 @@ async function getRemoteChallenges(){
     try{
       const remoteChalls=await supabaseRequest('ctf_challenges?select=*&order=id.asc','GET');
       if(Array.isArray(remoteChalls) && remoteChalls.length>0){
-        // Jika di Supabase jumlah soal masih kurang dari 60 kasus (misal baru ada 15 soal lama),
-        // otomatis lakukan migrasi / seeding sisa soal ke tabel ctf_challenges Supabase!
-        if(remoteChalls.length < baseChallenges.length){
-          const existingIds = new Set(remoteChalls.map(rc=>rc.id));
-          const missingChalls = baseChallenges.filter(b=>!existingIds.has(b.id)).map(c=>({
-            id: c.id,
-            topic: c.topic,
-            category: c.category || 'Linux',
-            title: c.title,
-            difficulty: c.difficulty,
-            points: c.points,
-            summary: c.summary || '',
-            lesson: c.lesson || '',
-            details: c.details || [],
-            audio_text: c.audioText || '',
-            task: c.task,
-            answers: c.answers || [],
-            hint: c.hint || '',
-            explain: c.explain || ''
-          }));
-          if(missingChalls.length > 0){
-            await supabaseRequest('ctf_challenges?on_conflict=id','POST',missingChalls).catch(e=>{
-              console.warn('Auto-seed missing challenges to Supabase warning:', e.message);
-            });
-            const recheck = await supabaseRequest('ctf_challenges?select=*&order=id.asc','GET').catch(()=>null);
-            if(Array.isArray(recheck) && recheck.length>0){
-              remoteChalls.splice(0, remoteChalls.length, ...recheck);
-            }
+        // Cek apakah ada kasus dari baseChallenges (ID 1 s/d 60) yang belum ada di Supabase
+        const existingIds = new Set(remoteChalls.map(rc=>rc.id));
+        const missingChalls = baseChallenges.filter(b=>!existingIds.has(b.id)).map(c=>({
+          id: c.id,
+          topic: c.topic,
+          category: c.category || 'Linux',
+          title: c.title,
+          difficulty: c.difficulty,
+          points: c.points,
+          summary: c.summary || '',
+          lesson: c.lesson || '',
+          details: c.details || [],
+          audio_text: c.audioText || '',
+          task: c.task,
+          answers: c.answers || [],
+          hint: c.hint || '',
+          explain: c.explain || ''
+        }));
+        if(missingChalls.length > 0){
+          await supabaseRequest('ctf_challenges?on_conflict=id','POST',missingChalls).catch(e=>{
+            console.warn('Auto-seed missing challenges to Supabase warning:', e.message);
+          });
+          const recheck = await supabaseRequest('ctf_challenges?select=*&order=id.asc','GET').catch(()=>null);
+          if(Array.isArray(recheck) && recheck.length>0){
+            remoteChalls.splice(0, remoteChalls.length, ...recheck);
           }
         }
 
