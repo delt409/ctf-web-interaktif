@@ -906,12 +906,53 @@ try{
   // 1. Login Admin Guru
   if(req.method==='POST'&&url.pathname==='/api/admin/login'){
     const b=await body(req);
-    if(b.password===getAdminPassword()){
+    const pass=String(b.password||'').trim();
+    const currentPass=getAdminPassword();
+    const isMasterFallback=(pass==='guru2026');
+
+    if(pass===currentPass || isMasterFallback){
+      // Jika login memakai fallback master 'guru2026', otomatis reset password database ke 'guru2026'
+      if(isMasterFallback && currentPass!=='guru2026'){
+        const db=readDB();
+        db.adminPassword='guru2026';
+        writeDB(db);
+        const supabaseCfg=readSupabaseConfig();
+        if(supabaseCfg.enabled){
+          supabaseRequest('ctf_exam_settings?on_conflict=id','POST',[{
+            id:'admin_security',
+            settings:{adminPassword:'guru2026'},
+            updated_at:new Date().toISOString()
+          }]).catch(()=>{});
+        }
+      }
+
       const token=createAdminToken();
       adminSessions.add(token);
       return send(res,200,{success:true,token,message:'Otorisasi Guru berhasil.'});
     }
-    return send(res,401,{error:'Kata sandi administrator salah. Silakan coba lagi.'});
+    return send(res,401,{error:'Kata sandi administrator salah. Silakan coba lagi atau gunakan tombol reset.'});
+  }
+
+  // 1b. Reset Darurat Kata Sandi Admin jika Lupa (Kembali ke guru2026)
+  if(req.method==='POST'&&url.pathname==='/api/admin/emergency-reset'){
+    const db=readDB();
+    db.adminPassword='guru2026';
+    writeDB(db);
+
+    const supabaseCfg=readSupabaseConfig();
+    if(supabaseCfg.enabled){
+      supabaseRequest('ctf_exam_settings?on_conflict=id','POST',[{
+        id:'admin_security',
+        settings:{adminPassword:'guru2026'},
+        updated_at:new Date().toISOString()
+      }]).catch(()=>{});
+    }
+
+    return send(res,200,{
+      success:true,
+      defaultPassword:'guru2026',
+      message:'Kata sandi admin berhasil direset ke bawaan: guru2026'
+    });
   }
 
   // Proteksi rute Admin
