@@ -7,7 +7,9 @@ let progress={solved:[],attempts:0};
 let view='dashboard';
 let selected=1;
 let examModeActive=false;
-let adminSubView='grades'; // grades, exam, addCase, accounts, supabase
+let adminSubView='grades'; // grades, exam, materials, curriculum, accounts, supabase
+let activeCategoryFilter='all'; // all, Linux, Jaringan, Cyber, Hardware
+let materiSearchQuery='';
 
 const escapeHTML=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -55,13 +57,26 @@ async function updateDbStatusPill(){
 }
 
 async function refresh(){
-  const j=await api('/api/challenges');
-  challenges=j.challenges;
-  progress=j.progress;
-  examModeActive=!!j.examMode;
-  $('#who').textContent=name||'Penyelidik';
-  updateDbStatusPill();
-  render();
+  try{
+    const j=await api('/api/challenges');
+    challenges=j.challenges;
+    progress=j.progress;
+    examModeActive=!!j.examMode;
+    $('#who').textContent=name||'Penyelidik';
+    updateDbStatusPill();
+    render();
+  }catch(err){
+    // Fallback saat belum login: muat daftar materi publik dari Supabase agar silabus & kartu kasus tetap sinkron
+    try{
+      const pub=await fetch('/api/public/challenges').then(r=>r.json());
+      if(pub && Array.isArray(pub.challenges) && pub.challenges.length>0){
+        challenges=pub.challenges;
+      }
+    }catch{}
+    updateDbStatusPill();
+    render();
+    throw err;
+  }
 }
 
 function score(){
@@ -538,19 +553,60 @@ function materi(){
       </div>
     </div>
 
-    <h3 style="font-family:var(--font-judul);font-size:20px;margin:32px 0 16px">Arsip Pedoman Seluruh Modul</h3>
+    <!-- Filter & Pencarian Materi 60 Kasus -->
+    <div style="margin:36px 0 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+      <div>
+        <h3 style="font-family:var(--font-judul);font-size:20px;margin:0 0 4px">Arsip Pedoman Seluruh Modul (${challenges.length} Kasus)</h3>
+        <p style="font-size:12px;color:var(--pensil);margin:0">Saring berdasarkan pilar kompetensi TJKT atau cari materi langsung.</p>
+      </div>
+      <div>
+        <input id="materiSearchInput" placeholder="🔍 Cari judul/konsep materi..." value="${escapeHTML(materiSearchQuery)}" style="padding:7px 12px;font-size:12px;border:1.5px solid var(--tinta-pekat);border-radius:var(--radius);background:var(--kertas);min-width:260px">
+      </div>
+    </div>
+
+    <!-- Filter Pills Kategori -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      ${['all','Linux','Jaringan','Cyber','Hardware'].map(cat=>{
+        const count = cat==='all' ? challenges.length : challenges.filter(x=>(x.category||'Linux')===cat).length;
+        const labels = {all:'Semua', Linux:'Linux & Server', Jaringan:'Jaringan & Firewall', Cyber:'Cyber & Kripto', Hardware:'Hardware & IoT'};
+        const active = activeCategoryFilter === cat;
+        return `
+          <button class="btn-secondary-action btn-mat-cat-filter" data-cat="${cat}" style="${active?'background:var(--tinta-pekat);color:#fff;border-color:var(--tinta-pekat)':''};font-size:11px;padding:5px 12px">
+            ${labels[cat]||cat} (${count})
+          </button>
+        `;
+      }).join('')}
+    </div>
+
+    <!-- Grid Kartu Materi Terfilter -->
     <div class="case-index-grid">
-      ${challenges.map(x=>`
-        <div class="case-folder-card ${x.id===selected?'active-selected':''}" data-mat="${x.id}">
-          <span class="case-folder-serial">#${String(x.id).padStart(3,'0')}</span>
-          <span class="meta-tag">${escapeHTML(x.topic)}</span>
-          <div class="case-folder-title" style="font-size:15px">${escapeHTML(x.title)}</div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
-            <span class="meta-tag" style="background:none">${x.points} XP</span>
-            <span class="btn-secondary-action" style="padding:4px 8px;font-size:10px">${x.id===selected?'Sedang Dibuka':'Buka Berkas'}</span>
+      ${(()=>{
+        const q=materiSearchQuery.toLowerCase().trim();
+        const filtered=challenges.filter(x=>{
+          const matchCat = activeCategoryFilter==='all' || (x.category||'Linux')===activeCategoryFilter;
+          const matchQ = !q || (x.title||'').toLowerCase().includes(q) || (x.topic||'').toLowerCase().includes(q) || (x.lesson||'').toLowerCase().includes(q);
+          return matchCat && matchQ;
+        });
+
+        if(filtered.length===0){
+          return `<div class="dossier-card dossier-card-white" style="grid-column:1/-1;text-align:center;padding:24px;color:var(--pensil)">Tidak ditemukan materi yang cocok dengan pencarian.</div>`;
+        }
+
+        return filtered.map(x=>`
+          <div class="case-folder-card ${x.id===selected?'active-selected':''}" data-mat="${x.id}">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <span class="case-folder-serial">#${String(x.id).padStart(3,'0')}</span>
+              <span class="meta-tag" style="font-size:10px">${escapeHTML(x.category||'Linux')}</span>
+            </div>
+            <span class="meta-tag" style="background:none;border-color:var(--merah-stempel);color:var(--merah-stempel)">${escapeHTML(x.topic)}</span>
+            <div class="case-folder-title" style="font-size:15px;margin-top:6px">${escapeHTML(x.title)}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+              <span class="meta-tag" style="background:none">${x.points} XP • ${escapeHTML(x.difficulty||'Low')}</span>
+              <span class="btn-secondary-action" style="padding:4px 8px;font-size:10px">${x.id===selected?'Sedang Dibuka':'Buka Berkas'}</span>
+            </div>
           </div>
-        </div>
-      `).join('')}
+        `).join('');
+      })()}
     </div>
   `;
 
@@ -572,6 +628,28 @@ function materi(){
     render();
   };
 
+  // Search input handler
+  const searchInp=$('#materiSearchInput');
+  if(searchInp){
+    searchInp.oninput=()=>{
+      materiSearchQuery=searchInp.value;
+      materi();
+      const updatedInp=$('#materiSearchInput');
+      if(updatedInp){
+        updatedInp.focus();
+        updatedInp.setSelectionRange(updatedInp.value.length, updatedInp.value.length);
+      }
+    };
+  }
+
+  // Category filter clicks
+  document.querySelectorAll('.btn-mat-cat-filter').forEach(btn=>{
+    btn.onclick=()=>{
+      activeCategoryFilter=btn.dataset.cat;
+      materi();
+    };
+  });
+
   document.querySelectorAll('[data-mat]').forEach(el=>{
     el.onclick=()=>{
       stopAudio();
@@ -589,9 +667,28 @@ function tantangan(){
   const padId=String(c.id).padStart(3,'0');
 
   app.innerHTML=`
-    <!-- Pilihan Kasus Cepat -->
-    <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:12px;margin-bottom:18px">
-      ${challenges.map(x=>{
+    <!-- Filter Kategori & Pilihan Kasus Cepat -->
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      <div style="font-family:var(--font-kode);font-size:11px;font-weight:700;color:var(--pensil)">
+        PILIH KASUS INVESTIGASI (${challenges.length} SOAL TERSEDIA):
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${['all','Linux','Jaringan','Cyber','Hardware'].map(cat=>{
+          const count = cat==='all' ? challenges.length : challenges.filter(x=>(x.category||'Linux')===cat).length;
+          const labels = {all:'Semua', Linux:'Linux', Jaringan:'Jaringan', Cyber:'Cyber', Hardware:'Hardware'};
+          const active = activeCategoryFilter === cat;
+          return `
+            <button class="btn-secondary-action btn-bench-cat-filter" data-cat="${cat}" style="${active?'background:var(--tinta-pekat);color:#fff;border-color:var(--tinta-pekat)':''};font-size:10px;padding:3px 8px">
+              ${labels[cat]||cat} (${count})
+            </button>
+          `;
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- Pilihan Kasus Cepat Terfilter -->
+    <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:12px;margin-bottom:18px;-webkit-overflow-scrolling:touch">
+      ${challenges.filter(x => activeCategoryFilter==='all' || (x.category||'Linux')===activeCategoryFilter).map(x=>{
         const active=x.id===selected;
         const solved=progress.solved.includes(x.id);
         return `
@@ -730,6 +827,13 @@ function tantangan(){
 
   wireTapeDeck(c.audioText||`${c.title}. ${c.lesson}. Misi: ${c.task}`);
   initTerminal('benchTermScroll','benchTermHistory','benchTermInput');
+
+  document.querySelectorAll('.btn-bench-cat-filter').forEach(btn=>{
+    btn.onclick=()=>{
+      activeCategoryFilter=btn.dataset.cat;
+      tantangan();
+    };
+  });
 
   document.querySelectorAll('[data-pick]').forEach(b=>{
     b.onclick=()=>{
@@ -934,6 +1038,7 @@ async function admin(){
         <button class="admin-subtab ${adminSubView==='grades'?'active':''}" data-sub="grades">📊 Rapor & Diagnostik Siswa</button>
         <button class="admin-subtab ${adminSubView==='exam'?'active':''}" data-sub="exam">🛡️ Mode Ujian, Timer & Skor</button>
         <button class="admin-subtab ${adminSubView==='materials'?'active':''}" data-sub="materials">📚 Kelola & Edit Materi</button>
+        <button class="admin-subtab ${adminSubView==='curriculum'?'active':''}" data-sub="curriculum">🎯 Kelola Silabus & Tujuan</button>
         <button class="admin-subtab ${adminSubView==='accounts'?'active':''}" data-sub="accounts">👥 Generate & Import CSV Akun</button>
         <button class="admin-subtab ${adminSubView==='supabase'?'active':''}" data-sub="supabase">⚡ Koneksi Supabase & Sync</button>
       </div>
@@ -965,6 +1070,7 @@ async function admin(){
   if(adminSubView==='grades') renderAdminGrades();
   if(adminSubView==='exam') renderAdminExam();
   if(adminSubView==='materials') renderAdminMaterials();
+  if(adminSubView==='curriculum') renderAdminCurriculum();
   if(adminSubView==='addCase') renderAdminAddCase();
   if(adminSubView==='accounts') renderAdminAccounts();
   if(adminSubView==='supabase') renderAdminSupabase();
@@ -1362,7 +1468,7 @@ async function renderAdminMaterials(){
         </div>
         <div style="display:flex;gap:8px">
           <button class="btn-primary-action" id="btnAdminAddNewMaterial" style="font-size:11px">➕ Buat Materi Baru</button>
-          <button class="btn-secondary-action" id="btnAdminResetMaterials" style="font-size:11px">🔄 Reset ke 15 Kasus Bawaan</button>
+          <button class="btn-secondary-action" id="btnAdminResetMaterials" style="font-size:11px">🔄 Reset ke 60 Kasus Standar</button>
         </div>
       </div>
 
@@ -1586,10 +1692,10 @@ async function renderAdminMaterials(){
     };
 
     $('#btnAdminResetMaterials').onclick=async()=>{
-      if(confirm('Yakin ingin mereset seluruh materi ke 15 kasus bawaan standard?')){
+      if(confirm('Yakin ingin mereset seluruh materi ke 60 kasus standar Kurikulum TJKT?')){
         try{
           await api('/api/admin/challenges/reset','POST');
-          alert('Materi berhasil direset ke standar.');
+          alert('Seluruh materi berhasil direset ke 60 kasus standar Kurikulum TJKT.');
           renderAdminMaterials();
           await refresh();
         }catch(e){
@@ -1600,6 +1706,209 @@ async function renderAdminMaterials(){
 
   }catch(err){
     slot.innerHTML=`<div class="flag-feedback-msg danger">Gagal memuat materi: ${err.message}</div>`;
+  }
+}
+
+/* SUB 3B: KELOLA SILABUS & TUJUAN PEMBELAJARAN (SUPABASE & LOKAL) */
+async function renderAdminCurriculum(){
+  const slot=$('#adminContentSlot');
+  slot.innerHTML='Memuat data silabus dan tujuan pembelajaran...';
+  try{
+    const j=await api('/api/admin/curriculum');
+    const curr=j.curriculum || {};
+    let tps=Array.isArray(curr.tujuanPembelajaran)?curr.tujuanPembelajaran:[];
+    let benefits=Array.isArray(curr.manfaatCTF)?curr.manfaatCTF:[];
+    let levels=Array.isArray(curr.tingkatKesulitan)?curr.tingkatKesulitan:[];
+
+    slot.innerHTML=`
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px">
+        <div>
+          <h3 style="font-family:var(--font-judul);font-size:20px;margin:0 0 4px">🎯 Kelola Silabus & Tujuan Pembelajaran TJKT</h3>
+          <p style="font-size:12px;color:var(--pensil);margin:0">
+            Seluruh data tersimpan di Supabase (tabel <code>ctf_curriculum</code>) dan otomatis live di halaman publik Silabus.
+          </p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-primary-action" id="btnSaveCurriculum" style="font-size:11px">💾 Simpan ke Supabase</button>
+          <button class="btn-secondary-action" id="btnResetCurriculum" style="font-size:11px">🔄 Reset ke Standar</button>
+        </div>
+      </div>
+
+      <div id="curriculumFeedback"></div>
+
+      <form id="formCurriculum" style="display:grid;gap:20px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="admin-form-group">
+            <label>PROGRAM KEAHLIAN:</label>
+            <input id="currProgram" value="${escapeHTML(curr.programKeahlian||'Teknik Jaringan Komputer dan Telekomunikasi (TJKT)')}" required>
+          </div>
+          <div class="admin-form-group">
+            <label>NAMA KURIKULUM:</label>
+            <input id="currKurikulum" value="${escapeHTML(curr.kurikulum||'Kurikulum Merdeka SMK Kejuruan (Fase F)')}" required>
+          </div>
+        </div>
+
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <h4 style="font-family:var(--font-judul);font-size:17px;margin:0">Capaian & Tujuan Pembelajaran (Elemen Kompetensi)</h4>
+            <button type="button" class="btn-secondary-action" id="btnAddTP" style="font-size:10px">➕ Tambah TP Baru</button>
+          </div>
+          <div id="tpListContainer" style="display:grid;gap:12px">
+            ${tps.map((tp, idx)=>`
+              <div class="dossier-card dossier-card-white tp-item-row" data-tpidx="${idx}" style="border:1.5px solid var(--tinta-pekat);padding:14px;position:relative">
+                <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px">
+                  <input style="width:90px;font-family:var(--font-kode);font-weight:700" class="tp-kode-input" value="${escapeHTML(tp.kode||`TP-0${idx+1}`)}" placeholder="Kode">
+                  <input style="flex:1;font-weight:600" class="tp-bidang-input" value="${escapeHTML(tp.bidang||'')}" placeholder="Bidang Kompetensi (e.g. Linux, Jaringan, Cyber)">
+                  <button type="button" class="btn-secondary-action btn-del-tp" style="color:var(--merah-stempel);font-size:11px;padding:4px 8px">✕ Hapus</button>
+                </div>
+                <textarea class="tp-deskripsi-input" rows="2" style="width:100%" placeholder="Deskripsi Capaian Pembelajaran...">${escapeHTML(tp.deskripsi||'')}</textarea>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <h4 style="font-family:var(--font-judul);font-size:17px;margin:0">Keunggulan & Manfaat Pembelajaran Media CTF</h4>
+            <button type="button" class="btn-secondary-action" id="btnAddBenefit" style="font-size:10px">➕ Tambah Poin Manfaat</button>
+          </div>
+          <div id="benefitListContainer" style="display:grid;gap:8px">
+            ${benefits.map((bText, idx)=>`
+              <div class="benefit-item-row" style="display:flex;gap:8px;align-items:center">
+                <input class="benefit-input" style="flex:1" value="${escapeHTML(bText)}" placeholder="Tuliskan manfaat pembelajaran...">
+                <button type="button" class="btn-secondary-action btn-del-benefit" style="color:var(--merah-stempel);font-size:11px;padding:4px 8px">✕</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div>
+          <h4 style="font-family:var(--font-judul);font-size:17px;margin:0 0 10px">Matriks Tingkat Kesulitan Tantangan</h4>
+          <div id="levelListContainer" style="display:grid;gap:10px">
+            ${levels.map((lvl, idx)=>`
+              <div class="dossier-card dossier-card-white level-item-row" style="border:1.5px solid var(--tinta-pekat);padding:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <input class="lvl-name-input" style="width:140px;font-weight:700" value="${escapeHTML(lvl.level||'')}" placeholder="Nama Level">
+                <input class="lvl-xp-input" style="width:120px;font-family:var(--font-kode)" value="${escapeHTML(lvl.xp||'')}" placeholder="Rentang XP">
+                <input class="lvl-desc-input" style="flex:1;min-width:200px" value="${escapeHTML(lvl.deskripsi||'')}" placeholder="Deskripsi target materi">
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div style="margin-top:10px">
+          <button type="submit" class="btn-primary-action" style="font-size:13px;padding:12px 24px">
+            💾 Simpan Seluruh Perubahan Silabus ke Supabase
+          </button>
+        </div>
+      </form>
+    `;
+
+    // Event Add TP
+    $('#btnAddTP').onclick=()=>{
+      const container=$('#tpListContainer');
+      const idx=container.querySelectorAll('.tp-item-row').length;
+      const div=document.createElement('div');
+      div.className='dossier-card dossier-card-white tp-item-row';
+      div.style.cssText='border:1.5px solid var(--tinta-pekat);padding:14px;position:relative';
+      div.innerHTML=`
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px">
+          <input style="width:90px;font-family:var(--font-kode);font-weight:700" class="tp-kode-input" value="TP-0${idx+1}" placeholder="Kode">
+          <input style="flex:1;font-weight:600" class="tp-bidang-input" value="" placeholder="Bidang Kompetensi (e.g. Linux, Jaringan, Cyber)">
+          <button type="button" class="btn-secondary-action btn-del-tp" style="color:var(--merah-stempel);font-size:11px;padding:4px 8px">✕ Hapus</button>
+        </div>
+        <textarea class="tp-deskripsi-input" rows="2" style="width:100%" placeholder="Deskripsi Capaian Pembelajaran..."></textarea>
+      `;
+      div.querySelector('.btn-del-tp').onclick=()=>div.remove();
+      container.appendChild(div);
+    };
+
+    // Event Add Benefit
+    $('#btnAddBenefit').onclick=()=>{
+      const container=$('#benefitListContainer');
+      const div=document.createElement('div');
+      div.className='benefit-item-row';
+      div.style.cssText='display:flex;gap:8px;align-items:center';
+      div.innerHTML=`
+        <input class="benefit-input" style="flex:1" value="" placeholder="Tuliskan manfaat pembelajaran...">
+        <button type="button" class="btn-secondary-action btn-del-benefit" style="color:var(--merah-stempel);font-size:11px;padding:4px 8px">✕</button>
+      `;
+      div.querySelector('.btn-del-benefit').onclick=()=>div.remove();
+      container.appendChild(div);
+    };
+
+    // Delete TP buttons
+    slot.querySelectorAll('.btn-del-tp').forEach(btn=>{
+      btn.onclick=e=>e.target.closest('.tp-item-row').remove();
+    });
+
+    // Delete Benefit buttons
+    slot.querySelectorAll('.btn-del-benefit').forEach(btn=>{
+      btn.onclick=e=>e.target.closest('.benefit-item-row').remove();
+    });
+
+    // Save Curriculum Form
+    const handleSave = async (e) => {
+      if(e) e.preventDefault();
+      const fb=$('#curriculumFeedback');
+      fb.innerHTML='<div class="marginalia-note">Menyimpan silabus ke database...</div>';
+
+      const programKeahlian=$('#currProgram').value.trim();
+      const kurikulum=$('#currKurikulum').value.trim();
+
+      const newTps=[];
+      slot.querySelectorAll('.tp-item-row').forEach(row=>{
+        const kode=row.querySelector('.tp-kode-input').value.trim();
+        const bidang=row.querySelector('.tp-bidang-input').value.trim();
+        const deskripsi=row.querySelector('.tp-deskripsi-input').value.trim();
+        if(kode && bidang) newTps.push({ kode, bidang, deskripsi });
+      });
+
+      const newBenefits=[];
+      slot.querySelectorAll('.benefit-input').forEach(inp=>{
+        const val=inp.value.trim();
+        if(val) newBenefits.push(val);
+      });
+
+      const newLevels=[];
+      slot.querySelectorAll('.level-item-row').forEach(row=>{
+        const level=row.querySelector('.lvl-name-input').value.trim();
+        const xp=row.querySelector('.lvl-xp-input').value.trim();
+        const deskripsi=row.querySelector('.lvl-desc-input').value.trim();
+        if(level) newLevels.push({ level, xp, deskripsi });
+      });
+
+      try{
+        const res=await api('/api/admin/curriculum/save','POST',{
+          programKeahlian,
+          kurikulum,
+          tujuanPembelajaran: newTps,
+          manfaatCTF: newBenefits,
+          tingkatKesulitan: newLevels
+        });
+        fb.innerHTML=`<div class="flag-feedback-msg success">✓ ${res.message||'Silabus berhasil disimpan ke Supabase & lokal!'}</div>`;
+        setTimeout(()=>{ if(fb) fb.innerHTML=''; }, 4000);
+      }catch(err){
+        fb.innerHTML=`<div class="flag-feedback-msg danger">✗ Gagal menyimpan: ${err.message}</div>`;
+      }
+    };
+
+    $('#formCurriculum').onsubmit = handleSave;
+    $('#btnSaveCurriculum').onclick = handleSave;
+
+    // Reset button
+    $('#btnResetCurriculum').onclick = async () => {
+      if(!confirm('Kembalikan silabus ke standar bawaan Kurikulum Merdeka TJKT?')) return;
+      try{
+        const res=await api('/api/admin/curriculum/reset','POST');
+        alert(res.message||'Silabus berhasil direset.');
+        renderAdminCurriculum();
+      }catch(err){
+        alert('Gagal reset: '+err.message);
+      }
+    };
+
+  }catch(err){
+    slot.innerHTML=`<div class="flag-feedback-msg danger">Gagal memuat kurikulum: ${err.message}</div>`;
   }
 }
 
