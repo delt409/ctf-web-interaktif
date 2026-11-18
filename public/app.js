@@ -644,39 +644,6 @@ function superadminLoginView(){
   };
 }
 
-  $('#btnBackToHome').onclick = () => {
-    view = 'dashboard';
-    window.location.hash = '';
-    render();
-  };
-
-  $('#inlineSuperadminForm').onsubmit = async (e) => {
-    e.preventDefault();
-    const errSlot = $('#superAdminLoginError');
-    errSlot.textContent = '';
-    try {
-      const pass = $('#inpSuperAdminPassword').value;
-      const res = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: pass })
-      });
-      const data = await res.json();
-      if (!res.ok) throw Error(data.error || 'Kata sandi salah!');
-
-      adminToken = data.token;
-      sessionStorage.setItem('cyber_admin_token', adminToken);
-      const adminTab = $('#binderTabAdmin');
-      if (adminTab) adminTab.style.display = 'inline-flex';
-      view = 'admin';
-      adminSubView = 'grades';
-      admin();
-    } catch (err) {
-      errSlot.textContent = err.message;
-    }
-  };
-}
-
 /* ================= 1. DASHBOARD ================= */
 function dashboard(){
   const solvedCount=progress.solved.length;
