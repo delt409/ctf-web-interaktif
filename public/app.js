@@ -1784,7 +1784,7 @@ async function renderAdminMaterials(){
             try{
               await api('/api/admin/challenges/delete','POST',{id:mId});
               renderAdminMaterials();
-              await refresh();
+              refresh().catch(()=>{});
             }catch(e){
               alert('Gagal menghapus materi: '+e.message);
             }
@@ -1848,10 +1848,10 @@ async function renderAdminMaterials(){
           explain: $('#editMatExplain').value
         };
         await api('/api/admin/challenges/save','POST',payload);
-        alert('Materi berhasil disimpan ke database!');
         $('#materialEditorCard').style.display='none';
+        alert('Materi berhasil disimpan ke database!');
         renderAdminMaterials();
-        await refresh();
+        refresh().catch(()=>{});
       }catch(err){
         alert('Gagal menyimpan materi: '+err.message);
       }
@@ -1863,7 +1863,7 @@ async function renderAdminMaterials(){
           await api('/api/admin/challenges/reset','POST');
           alert('Seluruh materi berhasil direset ke 60 kasus standar Kurikulum TJKT.');
           renderAdminMaterials();
-          await refresh();
+          refresh().catch(()=>{});
         }catch(e){
           alert('Gagal mereset materi: '+e.message);
         }
