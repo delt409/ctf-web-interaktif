@@ -1047,44 +1047,69 @@ dialog::backdrop {
   margin: 0 0 20px;
 }
 
+.login-field-wrap {
+  margin-bottom: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .login-label {
   font-family: var(--font-kode);
   font-size: 11px;
   font-weight: 700;
-  color: var(--pensil);
+  color: var(--tinta-pekat);
   display: block;
   margin-bottom: 6px;
   letter-spacing: 0.5px;
 }
 
-.login-dossier-card input {
+.login-dossier-card input,
+.login-form-container input,
+.login-field-wrap input {
+  box-sizing: border-box;
   width: 100%;
+  display: block;
   padding: 12px 14px;
   background: var(--kertas-karton);
   border: 1.5px solid var(--tinta-pekat);
   border-radius: var(--radius);
   font-family: var(--font-kode);
   font-size: 14px;
-  margin-bottom: 18px;
+  color: var(--tinta-pekat);
+  margin-bottom: 4px;
+  transition: all 0.15s ease;
 }
 
-.login-dossier-card input:focus {
+.login-dossier-card input:focus,
+.login-form-container input:focus,
+.login-field-wrap input:focus {
   outline: 2px solid var(--merah-stempel);
-  background: #fff;
+  border-color: var(--merah-stempel);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(184, 41, 41, 0.15);
 }
 
 .login-submit {
   width: 100%;
-  padding: 12px;
-  font-size: 13px;
+  padding: 13px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
 }
 
 .login-error {
   color: var(--merah-stempel);
   font-family: var(--font-kode);
-  font-size: 11px;
+  font-size: 12px;
   margin-top: 10px;
-  min-height: 18px;
+  min-height: 20px;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+}
+.login-error:not(:empty) {
+  background: #FEF2F2;
+  border: 1px solid var(--merah-stempel);
 }
 
 /* ================= 10. RESPONSIF ================= */
@@ -1355,19 +1380,22 @@ input:checked + .slider-toggle:before {
 
 /* Tab Switch Autentikasi (Masuk vs Registrasi Mandiri) */
 .auth-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 18px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 20px;
   border-bottom: 2px solid var(--tinta-pekat);
-  padding-bottom: 8px;
+  padding-bottom: 12px;
 }
 .auth-tab-btn {
+  width: 100%;
+  text-align: center;
   background: var(--kertas-karton);
   border: 1.5px solid var(--tinta-pekat);
   border-radius: var(--radius);
-  padding: 8px 16px;
+  padding: 10px 14px;
   font-family: var(--font-kode);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   color: var(--tinta-tubuh);

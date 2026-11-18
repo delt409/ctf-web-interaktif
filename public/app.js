@@ -21,15 +21,49 @@ function updateHeaderAuthUI(){
   if(token && name){
     if(whoSpan) whoSpan.textContent=name;
     if(btnAuth) btnAuth.style.display='none';
-    if(btnLogout) btnLogout.style.display='inline-flex';
+    if(btnLogout){
+      btnLogout.style.display='inline-flex';
+      btnLogout.textContent='[KELUAR]';
+      btnLogout.title='Keluar dari sesi akun siswa';
+    }
   } else if(adminToken){
     if(whoSpan) whoSpan.textContent='Guru / Superadmin';
     if(btnAuth) btnAuth.style.display='none';
-    if(btnLogout) btnLogout.style.display='inline-flex';
+    if(btnLogout){
+      btnLogout.style.display='inline-flex';
+      btnLogout.textContent='[KELUAR ADMIN]';
+      btnLogout.title='Keluar dari sesi Superadmin/Guru';
+    }
   } else {
     if(whoSpan) whoSpan.textContent='Penyelidik';
     if(btnAuth) btnAuth.style.display='inline-flex';
     if(btnLogout) btnLogout.style.display='none';
+  }
+}
+
+function performLogout(){
+  stopAudio();
+  sessionStorage.clear();
+  localStorage.removeItem('cyber_token');
+  localStorage.removeItem('cyber_name');
+  localStorage.removeItem('cyber_admin_token');
+  token=null;
+  name=null;
+  adminToken=null;
+  progress={solved:[],attempts:0};
+  
+  const aTab=$('#binderTabAdmin');
+  if(aTab) aTab.style.display='none';
+  
+  updateHeaderAuthUI();
+
+  if(window.location.pathname.toLowerCase().startsWith('/superadmin') || window.location.hash.includes('superadmin')){
+    window.location.href='/';
+  } else {
+    view='dashboard';
+    window.location.hash='';
+    render();
+    refresh();
   }
 }
 
@@ -371,94 +405,94 @@ function render(){
 /* ================= VIEW: AUTENTIKASI SISWA (MASUK & REGISTRASI INTEGRATED - NO POPUP) ================= */
 function authView(){
   app.innerHTML = `
-    <div class="dossier-card dossier-card-white" style="border:2px solid var(--tinta-pekat);max-width:680px;margin:10px auto">
+    <div class="dossier-card dossier-card-white login-dossier-card login-form-container" style="border:2.5px solid var(--tinta-pekat);max-width:520px;margin:24px auto;box-shadow:8px 8px 0 var(--tinta-pekat);padding:32px 28px;box-sizing:border-box">
       <div class="tape-strip"></div>
       <div class="dossier-stamp-top">BERKAS IDENTIFIKASI OPERATOR // SISWA</div>
       
       <!-- Tab Pilihan: Masuk vs Registrasi Mandiri -->
-      <div class="auth-tabs" style="margin-top:14px">
+      <div class="auth-tabs" style="margin-top:16px">
         <button type="button" class="auth-tab-btn ${authSubTab==='login'?'active':''}" id="authTabLogin">🔑 Masuk Akun Siswa</button>
-        <button type="button" class="auth-tab-btn ${authSubTab==='register'?'active':''}" id="authTabRegister">📝 Registrasi Mandiri Akun Baru</button>
+        <button type="button" class="auth-tab-btn ${authSubTab==='register'?'active':''}" id="authTabRegister">📝 Registrasi Mandiri</button>
       </div>
 
       <!-- Form 1: Masuk Akun Siswa -->
       <div id="authLoginSection" style="display:${authSubTab==='login'?'block':'none'}">
-        <div class="login-header-group" style="margin-top:14px">
+        <div class="login-header-group" style="margin-top:10px">
           <div class="login-serial">REF: AUTH-TJKT-2026/LOGIN</div>
-          <h2 style="font-family:var(--font-judul);font-size:26px;margin:8px 0">Buku Catatan Lapangan</h2>
-          <p class="login-desc" style="font-size:14px;color:var(--tinta-tubuh);line-height:1.6">
-            Masukkan identitas siswa dan PIN/kata sandi Anda untuk menyinkronkan progres praktikum lab keamanan siber, tantangan CTF, dan penilaian rapor kompetensi.
+          <h2 style="font-family:var(--font-judul);font-size:24px;margin:8px 0;color:var(--tinta-pekat)">Masuk Buku Catatan Siswa</h2>
+          <p class="login-desc" style="font-size:13px;color:var(--tinta-tubuh);line-height:1.55;margin-bottom:18px">
+            Masukkan identitas siswa dan PIN/kata sandi Anda untuk menyinkronkan riwayat praktikum lab dan penilaian rapor kompetensi.
           </p>
         </div>
 
-        <form id="inlineLoginForm" style="margin-top:16px">
+        <form id="inlineLoginForm" style="margin-top:14px">
           <div class="login-field-wrap">
-            <label for="inpStudentName" class="login-label">NAMA SISWA / IDENTITAS PENGGUNA:</label>
+            <label for="inpStudentName" class="login-label">NAMA SISWA / PENGGUNA:</label>
             <input id="inpStudentName" placeholder="contoh: Ahmad_Fauzi" required minlength="2" maxlength="40" autocomplete="nickname">
           </div>
 
-          <div class="login-field-wrap" style="margin-top:14px">
+          <div class="login-field-wrap" style="margin-top:12px">
             <label for="inpStudentPassword" class="login-label">KATA SANDI / PIN KEAMANAN:</label>
             <input id="inpStudentPassword" type="password" placeholder="Masukkan kata sandi/PIN Anda" required minlength="4" maxlength="40" autocomplete="current-password">
           </div>
 
-          <button type="submit" class="btn-primary-action login-submit" style="margin-top:20px;width:100%;font-size:15px;padding:12px">
+          <button type="submit" class="btn-primary-action login-submit" style="margin-top:18px">
             <span>Masuk & Lanjutkan Lab Siswa →</span>
           </button>
-          <p class="login-error" id="inlineLoginError" style="color:var(--merah-stempel);margin-top:10px;font-weight:700"></p>
+          <p class="login-error" id="inlineLoginError"></p>
           
-          <div style="margin-top:18px;padding-top:14px;border-top:1px dashed var(--garis-buku);text-align:center;font-size:13px">
+          <div style="margin-top:16px;padding-top:12px;border-top:1px dashed var(--garis-buku);text-align:center;font-size:12px">
             Belum memiliki akun siswa? 
-            <a href="#" id="linkGoRegister" style="color:var(--merah-stempel);font-weight:700;text-decoration:underline">Daftar Mandiri Sekarang</a>
+            <a href="#" id="linkGoRegister" style="color:var(--merah-stempel);font-weight:700;text-decoration:underline">Daftar Mandiri di sini</a>
           </div>
         </form>
       </div>
 
       <!-- Form 2: Registrasi Mandiri Siswa Baru -->
       <div id="authRegisterSection" style="display:${authSubTab==='register'?'block':'none'}">
-        <div class="login-header-group" style="margin-top:14px">
+        <div class="login-header-group" style="margin-top:10px">
           <div class="login-serial">REF: REG-TJKT-2026/NEW</div>
-          <h2 style="font-family:var(--font-judul);font-size:26px;margin:8px 0">Registrasi Akun Siswa Baru</h2>
-          <p class="login-desc" style="font-size:14px;color:var(--tinta-tubuh);line-height:1.6">
-            Daftarkan identitas Anda secara mandiri untuk memulai pembelajaran interaktif, memperoleh akses konsol Linux, dan mencatat perolehan XP portofolio siber.
+          <h2 style="font-family:var(--font-judul);font-size:24px;margin:8px 0;color:var(--tinta-pekat)">Registrasi Akun Siswa Baru</h2>
+          <p class="login-desc" style="font-size:13px;color:var(--tinta-tubuh);line-height:1.55;margin-bottom:18px">
+            Daftarkan akun siswa Anda secara mandiri untuk memulai pembelajaran lab keamanan siber dan pencatatan perolehan skor XP.
           </p>
         </div>
 
-        <form id="inlineRegisterForm" style="margin-top:16px">
+        <form id="inlineRegisterForm" style="margin-top:14px">
           <div class="login-field-wrap">
-            <label for="inpRegStudentName" class="login-label">NAMA LENGKAP / IDENTITAS SISWA:</label>
+            <label for="inpRegStudentName" class="login-label">NAMA LENGKAP SISWA:</label>
             <input id="inpRegStudentName" placeholder="contoh: Ahmad_Fauzi" required minlength="2" maxlength="40">
           </div>
 
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px">
-            <div class="login-field-wrap">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+            <div class="login-field-wrap" style="margin-bottom:0">
               <label for="inpRegStudentKelas" class="login-label">KELAS:</label>
               <input id="inpRegStudentKelas" placeholder="contoh: XII TJKT 1" value="XII TJKT 1" required maxlength="30">
             </div>
-            <div class="login-field-wrap">
+            <div class="login-field-wrap" style="margin-bottom:0">
               <label for="inpRegStudentNisn" class="login-label">NISN (OPSIONAL):</label>
               <input id="inpRegStudentNisn" placeholder="Nomor Induk Siswa" maxlength="20">
             </div>
           </div>
 
-          <div class="login-field-wrap" style="margin-top:14px">
-            <label for="inpRegStudentPassword" class="login-label">BUAT KATA SANDI / PIN (MINIMAL 4 KARAKTER):</label>
+          <div class="login-field-wrap" style="margin-top:12px">
+            <label for="inpRegStudentPassword" class="login-label">BUAT KATA SANDI / PIN (MIN 4 KARAKTER):</label>
             <input id="inpRegStudentPassword" type="password" placeholder="Buat kata sandi akun Anda" required minlength="4" maxlength="40" autocomplete="new-password">
           </div>
 
-          <button type="submit" class="btn-primary-action login-submit" style="margin-top:20px;width:100%;font-size:15px;padding:12px">
-            <span>Daftar Akun & Mulai Pembelajaran →</span>
+          <button type="submit" class="btn-primary-action login-submit" style="margin-top:18px">
+            <span>Daftar Akun & Mulai Belajar →</span>
           </button>
-          <p class="login-error" id="inlineRegisterError" style="color:var(--merah-stempel);margin-top:10px;font-weight:700"></p>
+          <p class="login-error" id="inlineRegisterError"></p>
           
-          <div style="margin-top:18px;padding-top:14px;border-top:1px dashed var(--garis-buku);text-align:center;font-size:13px">
+          <div style="margin-top:16px;padding-top:12px;border-top:1px dashed var(--garis-buku);text-align:center;font-size:12px">
             Sudah memiliki akun terdaftar? 
-            <a href="#" id="linkGoLogin" style="color:var(--merah-stempel);font-weight:700;text-decoration:underline">Masuk Akun di sini</a>
+            <a href="#" id="linkGoLogin" style="color:var(--merah-stempel);font-weight:700;text-decoration:underline">Masuk di sini</a>
           </div>
         </form>
       </div>
 
-      <div style="margin-top:20px;text-align:center">
+      <div style="margin-top:18px;text-align:center">
         <button type="button" class="btn-secondary-action" id="btnCancelAuth" style="font-size:12px">← Kembali ke Sampul Kasus (Dashboard)</button>
       </div>
     </div>
@@ -501,6 +535,7 @@ function authView(){
         alert(data.concurrentWarning);
       }
       view = 'dashboard';
+      updateHeaderAuthUI();
       await refresh();
     } catch (err) {
       errSlot.textContent = err.message;
@@ -531,6 +566,7 @@ function authView(){
       sessionStorage.setItem('cyber_name', name);
       alert(`✓ Registrasi berhasil! Selamat datang di CyberLab CTF, ${name}.`);
       view = 'dashboard';
+      updateHeaderAuthUI();
       await refresh();
     } catch (err) {
       errSlot.textContent = err.message;
@@ -541,35 +577,72 @@ function authView(){
 /* ================= VIEW: OTORISASI GURU & SUPERADMIN (/superadmin - NO POPUP) ================= */
 function superadminLoginView(){
   app.innerHTML = `
-    <div class="dossier-card dossier-card-white" style="border:2px solid var(--tinta-pekat);max-width:580px;margin:20px auto">
+    <div class="dossier-card dossier-card-white login-dossier-card login-form-container" style="border:2.5px solid var(--tinta-pekat);max-width:480px;margin:24px auto;box-shadow:8px 8px 0 var(--tinta-pekat);padding:32px 28px;box-sizing:border-box">
       <div class="tape-strip"></div>
       <div class="dossier-stamp-top" style="color:var(--merah-stempel)">OTORISASI KOMANDO // SUPERADMIN</div>
       
       <div class="login-header-group" style="margin-top:14px">
         <div class="login-serial">PORTAL KHUSUS GURU & ADMINISTRATOR // SMK TJKT</div>
-        <h2 style="font-family:var(--font-judul);font-size:26px;margin:8px 0">Gerbang Panel Superadmin</h2>
-        <p class="login-desc" style="font-size:14px;color:var(--tinta-tubuh);line-height:1.6">
-          Akses area khusus instruktur dan pengawas. Masukkan kata sandi administrator untuk mengelola kurikulum HOTS, monitoring sesi siswa ganda, penerbitan akun, dan evaluasi hasil belajar.
+        <h2 style="font-family:var(--font-judul);font-size:24px;margin:8px 0;color:var(--tinta-pekat)">Gerbang Panel Superadmin</h2>
+        <p class="login-desc" style="font-size:13px;color:var(--tinta-tubuh);line-height:1.55;margin-bottom:18px">
+          Akses area khusus instruktur dan pengawas. Masukkan kata sandi administrator untuk mengelola kurikulum HOTS, monitoring sesi siswa ganda, dan evaluasi hasil belajar.
         </p>
       </div>
 
-      <form id="inlineSuperadminForm" style="margin-top:18px">
+      <form id="inlineSuperadminForm" style="margin-top:14px">
         <div class="login-field-wrap">
           <label for="inpSuperAdminPassword" class="login-label">KATA SANDI ADMINISTRATOR / GURU:</label>
           <input id="inpSuperAdminPassword" type="password" placeholder="Masukkan kata sandi superadmin..." required autocomplete="current-password" autofocus>
         </div>
 
-        <button type="submit" class="btn-primary-action login-submit" style="margin-top:20px;width:100%;font-size:15px;padding:12px">
+        <button type="submit" class="btn-primary-action login-submit" style="margin-top:18px">
           <span>Buka Portal Superadmin →</span>
         </button>
-        <p class="login-error" id="superAdminLoginError" style="color:var(--merah-stempel);margin-top:10px;font-weight:700"></p>
+        <p class="login-error" id="superAdminLoginError"></p>
         
-        <div style="margin-top:20px;padding-top:14px;border-top:1px dashed var(--garis-buku);text-align:center">
+        <div style="margin-top:18px;padding-top:14px;border-top:1px dashed var(--garis-buku);text-align:center">
           <button type="button" class="btn-secondary-action" id="btnBackToHome" style="font-size:12px">← Kembali ke Halaman Utama Siswa</button>
         </div>
       </form>
     </div>
   `;
+
+  $('#btnBackToHome').onclick = () => {
+    if(window.location.pathname.toLowerCase().startsWith('/superadmin') || window.location.hash.includes('superadmin')){
+      window.location.href='/';
+    } else {
+      view = 'dashboard';
+      window.location.hash = '';
+      render();
+    }
+  };
+
+  $('#inlineSuperadminForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const errSlot = $('#superAdminLoginError');
+    errSlot.textContent = '';
+    try {
+      const pass = $('#inpSuperAdminPassword').value;
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pass })
+      });
+      const data = await res.json();
+      if (!res.ok) throw Error(data.error || 'Kata sandi salah!');
+
+      adminToken = data.token;
+      sessionStorage.setItem('cyber_admin_token', adminToken);
+      const adminTab = $('#binderTabAdmin');
+      if (adminTab) adminTab.style.display = 'inline-flex';
+      view = 'admin';
+      adminSubView = 'grades';
+      admin();
+    } catch (err) {
+      errSlot.textContent = err.message;
+    }
+  };
+}
 
   $('#btnBackToHome').onclick = () => {
     view = 'dashboard';
@@ -1483,15 +1556,7 @@ async function admin(){
     </div>
   `;
 
-  $('#btnAdminLogout').onclick=()=>{
-    sessionStorage.removeItem('cyber_admin_token');
-    adminToken=null;
-    const aTab=$('#binderTabAdmin');
-    if(aTab) aTab.style.display='none';
-    view='dashboard';
-    window.location.hash='';
-    render();
-  };
+  $('#btnAdminLogout').onclick=performLogout;
 
   if($('#btnOpenChangePassword')){
     $('#btnOpenChangePassword').onclick=()=>{
@@ -2842,16 +2907,7 @@ if($('#btnHeaderAuth')){
 }
 
 if($('#logout')){
-  $('#logout').onclick=()=>{
-    stopAudio();
-    sessionStorage.removeItem('cyber_token');
-    sessionStorage.removeItem('cyber_name');
-    token=null;
-    name=null;
-    view='dashboard';
-    updateHeaderAuthUI();
-    refresh();
-  };
+  $('#logout').onclick=performLogout;
 }
 
 if($('#closeChangePassDialog')){
