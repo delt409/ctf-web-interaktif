@@ -1,0 +1,3 @@
+module.exports=[38389,a=>{"use strict";var b=a.i(87924),c=a.i(72131);a.s(["default",0,function({lessonId:a}){let[d,e]=(0,c.useState)("");return(0,b.jsxs)(b.Fragment,{children:[(0,b.jsx)("button",{onClick:async()=>{e((await fetch("/api/lessons/progress",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({lessonId:a})})).ok?"Materi ditandai selesai":"Login diperlukan atau terjadi kesalahan")},children:"Tandai selesai"}),(0,b.jsx)("p",{children:d})]})}])}];
+
+//# sourceMappingURL=src_components_LessonComplete_tsx_0nh1jj7_-3lkd._.js.map
