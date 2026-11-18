@@ -78,15 +78,9 @@ function writeDB(db){
 }
 
 // Algoritma Pembuatan Flag Dinamis Unik per Siswa (Anti-Kecurangan Saat Ujian)
-function getStudentDynamicFlag(studentName, challengeId){
-  const secretSalt='TJKT_EXAM_SALT_2026';
-  const hash=crypto.createHmac('sha256',secretSalt)
-    .update(`${(studentName||'').trim().toLowerCase()}_${challengeId}`)
-    .digest('hex')
-    .slice(0,6)
-    .toUpperCase();
-  const cleanStudent=(studentName||'SISWA').replace(/[^a-zA-Z0-9]/g,'').toUpperCase().slice(0,8);
-  return `FLAG{${challengeId}_${cleanStudent}_${hash}}`;
+// Dynamic flag generation disabled – all challenges use static answers only
+function getStudentDynamicFlag(){
+  return undefined;
 }
 
 function readSupabaseConfig(){
@@ -111,6 +105,45 @@ function writeSupabaseConfig(cfg){
 }
 
 // REST Client Bawaan Node.js untuk Komunikasi dengan Supabase (PostgREST)
+const https = require('https');
+
+// Helper to call Gemini Lite (AI generation)
+async function geminiLiteRequest(prompt) {
+  const apiKey = process.env.GEMINI_API_KEY || '';
+  if (!apiKey) throw new Error('GEMINI_API_KEY not set');
+  const data = JSON.stringify({
+    model: 'gemini-1.5-flash-lite',
+    prompt,
+    temperature: 0.7,
+  });
+  const options = {
+    hostname: 'generativelanguage.googleapis.com',
+    path: `/v1beta/models/gemini-1.5-flash-lite:generateContent?key=${apiKey}`,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(data),
+    },
+  };
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', (chunk) => (body += chunk));
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(body);
+          resolve(json);
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+    req.on('error', reject);
+    req.write(data);
+    req.end();
+  });
+}
+
 async function supabaseRequest(endpoint, method='GET', bodyData=null){
   const cfg=readSupabaseConfig();
   if(!cfg.url || !cfg.key) throw new Error('Supabase URL atau API Key belum disetel.');
@@ -227,7 +260,8 @@ async function getRemoteChallenges(){
           task: rc.task||'',
           answers: Array.isArray(rc.answers)?rc.answers:[],
           hint: rc.hint||'',
-          explain: rc.explain||''
+          explain: rc.explain||'',
+          video_url: rc.video_url||''
         })).sort((a,b)=>a.id-b.id);
 
         // Update database lokal sebagai mirror cache
@@ -1109,7 +1143,8 @@ try{
         task: b.task.trim(),
         answers: String(b.answer).split(',').map(s=>s.trim()).filter(Boolean),
         hint: b.hint || 'Perhatikan instruksi dengan cermat.',
-        explain: b.explain || 'Jawaban benar telah diverifikasi oleh sistem.'
+        explain: b.explain || 'Jawaban benar telah diverifikasi oleh sistem.',
+        video_url: (b.video_url || '').trim()
       };
 
       db.challenges.push(newChallenge);
@@ -1133,7 +1168,8 @@ try{
           task: newChallenge.task,
           answers: newChallenge.answers,
           hint: newChallenge.hint,
-          explain: newChallenge.explain
+          explain: newChallenge.explain,
+          video_url: newChallenge.video_url
         }]).catch(err=>console.warn('Supabase challenge insert warning:',err.message));
       }
 
@@ -1422,7 +1458,8 @@ try{
         task: b.task.trim(),
         answers: Array.isArray(b.answers) ? b.answers : String(b.answers || '').split(',').map(s=>s.trim()).filter(Boolean),
         hint: b.hint || '',
-        explain: b.explain || ''
+        explain: b.explain || '',
+        video_url: (b.video_url || '').trim()
       };
 
       // Simpan langsung ke Supabase jika aktif
@@ -1443,7 +1480,8 @@ try{
             task: challData.task,
             answers: challData.answers,
             hint: challData.hint,
-            explain: challData.explain
+            explain: challData.explain,
+            video_url: challData.video_url
           }]);
         }catch(err){
           console.warn('Supabase challenge save warning:',err.message);

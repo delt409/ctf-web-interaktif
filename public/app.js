@@ -14,6 +14,46 @@ let materiSearchQuery='';
 
 const escapeHTML=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+function gdriveToEmbed(url){
+  // helper untuk menambah output simulator
+}
+
+// Helper untuk menambahkan output simulator secara terpusat
+const addOutput = (cmd, out) => { outputs[cmd] = out; };
+
+// Daftar output simulasi yang dibutuhkan oleh tantangan (contoh)
+addOutput('grep "Failed password" /var/log/auth.log',
+  'Failed password for invalid user root from 192.168.1.150 port 22 ssh2');
+addOutput('find /var -name "backup.key"', '/var/backups/backup.key');
+addOutput('ps aux', `root      1  0.0  0.1  1234  567 ?  Ss   10:00   0:00 /sbin/init
+student   123  0.1  0.2  4321  987 ?  S    10:01   0:02 xmrig`);
+addOutput('crontab -l', '# m h  dom mon dow   command\n0 * * * * /usr/bin/backup.sh');
+addOutput('systemctl status ssh', '● ssh.service - OpenSSH Daemon\n   Loaded: loaded (/lib/systemd/system/ssh.service; enabled; vendor preset: enabled)\n   Active: active (running) since Mon 2026-11-14 09:12:34 UTC; 2 days ago');
+addOutput('ip addr', `2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500\n    inet 10.0.0.5/24 brd 10.0.0.255 scope global eth0`);
+addOutput('ss -tuln', 'LISTEN 0 128 0.0.0.0:22 0.0.0.0:*');
+addOutput('nslookup example.com', `Server:  8.8.8.8\nNon-authoritative answer:\nName:    example.com\nAddress: 93.184.216.34`);
+addOutput('dig example.com', `;; ANSWER SECTION:\nexample.com.  86400 IN A 93.184.216.34`);
+addOutput('nmap -p 22 10.0.0.5', `Starting Nmap 7.80 ( https://nmap.org )\nHost discovery disabled.\nAll 1 scanned ports on 10.0.0.5 are open.`);
+addOutput('iptables -L', `Chain INPUT (policy ACCEPT)\ntarget     prot opt source               destination\nACCEPT     all  --  anywhere             anywhere`);
+addOutput('journalctl -u ssh', 'Jun 01 10:00:00 host systemd[1]: Started OpenSSH Daemon.');
+addOutput('df -h', `Filesystem      Size  Used Avail Use% Mounted on\n/dev/root        30G   12G   17G  42% /`);
+addOutput('traceroute google.com', `traceroute to google.com (172.217.12.14), 30 hops max\n 1  10.0.0.1  1.123 ms  1.045 ms  1.012 ms\n 2  192.168.1.1  5.321 ms  5.210 ms  5.098 ms`);
+addOutput('ping -c 3 8.8.8.8', `PING 8.8.8.8 (8.8.8.8): 56 data bytes\n--- 8.8.8.8 ping statistics ---\n3 packets transmitted, 3 packets received, 0.0% packet loss`);
+addOutput('arp -a', `? (192.168.1.1) at 00:11:22:33:44:55 [ether] on eth0`);
+addOutput('curl -s https://example.com', '<html>…</html>');
+addOutput('cat .secret', 'FLAG{secret_flag_example}');
+
+  if(!url) return '';
+  url = url.trim();
+  // Format: https://drive.google.com/file/d/FILE_ID/view atau /preview
+  const m1 = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if(m1) return `https://drive.google.com/file/d/${m1[1]}/preview`;
+  // Format: https://drive.google.com/open?id=FILE_ID
+  const m2 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if(m2) return `https://drive.google.com/file/d/${m2[1]}/preview`;
+  return url;
+}
+
 function updateHeaderAuthUI(){
   const whoSpan=$('#who');
   const btnAuth=$('#btnHeaderAuth');
@@ -942,6 +982,22 @@ function materi(){
         BEDAH STRUKTUR & ANALISIS TEKNIS LAPANGAN
       </h3>
       ${detailsHtml}
+
+      ${c.video_url ? `
+      <div class="dossier-card" style="margin:18px 0;padding:0;overflow:hidden;border:2px solid var(--tinta-pekat);border-radius:var(--radius)">
+        <div style="padding:10px 16px;background:var(--kertas-karton);border-bottom:1.5px solid var(--tinta-pekat);font-family:var(--font-kode);font-size:11px;font-weight:700;display:flex;align-items:center;gap:8px">
+          🎬 VIDEO TUTORIAL MATERI — REKAMAN LABORATORIUM TJKT
+        </div>
+        <div style="position:relative;padding-top:56.25%;background:#111">
+          <iframe
+            src="${gdriveToEmbed(c.video_url)}"
+            style="position:absolute;top:0;left:0;width:100%;height:100%;border:none"
+            allow="autoplay"
+            allowfullscreen
+          ></iframe>
+        </div>
+      </div>
+      ` : ''}
 
       <div class="case-mission-card">
         <div class="mission-label">🎯 INSTRUKSI PENUGASAN DI MEJA KERJA:</div>
@@ -2013,6 +2069,14 @@ async function renderAdminMaterials(){
             </div>
           </div>
 
+          <div class="admin-form-group" style="margin-top:14px">
+            <label>🎬 LINK VIDEO GOOGLE DRIVE (OPSIONAL):</label>
+            <input id="editMatVideoUrl" type="url" placeholder="https://drive.google.com/file/d/FILE_ID/view" style="width:100%">
+            <small style="font-family:var(--font-kode);font-size:10px;color:var(--pensil);display:block;margin-top:4px">
+              Format: https://drive.google.com/file/d/FILE_ID/view — sistem otomatis konversi ke embed. Kosongkan jika tidak ada video.
+            </small>
+          </div>
+
           <div style="display:flex;gap:10px;margin-top:14px">
             <button type="submit" class="btn-primary-action">💾 Simpan Perubahan ke Database</button>
             <button type="button" class="btn-secondary-action" id="btnCancelEditMat">Batal</button>
@@ -2050,6 +2114,7 @@ async function renderAdminMaterials(){
               <span class="meta-tag">${escapeHTML(m.category)}</span>
               <span class="meta-tag">${escapeHTML(m.difficulty)}</span>
               <span class="meta-tag" style="background:#FEF3C7;color:#92400E;font-weight:700">${m.points} XP</span>
+              ${m.video_url ? '<span class="meta-tag" style="background:#EDE9FE;color:#5B21B6">🎬 Ada Video</span>' : ''}
             </p>
             <p style="margin-top:6px;color:var(--tinta-tubuh);font-size:12px">
               <strong>Tugas:</strong> ${escapeHTML(m.task)}
@@ -2078,6 +2143,7 @@ async function renderAdminMaterials(){
           $('#editMatAnswers').value=Array.isArray(m.answers)?m.answers.join(', '):(m.answers||'');
           $('#editMatHint').value=m.hint||'';
           $('#editMatExplain').value=m.explain||'';
+          $('#editMatVideoUrl').value=m.video_url||'';
           $('#editorTitle').textContent=`Edit Materi #${m.id}: ${m.title}`;
           $('#materialEditorCard').style.display='block';
           $('#materialEditorCard').scrollIntoView({behavior:'smooth'});
@@ -2129,6 +2195,7 @@ async function renderAdminMaterials(){
       $('#editMatAnswers').value='';
       $('#editMatHint').value='';
       $('#editMatExplain').value='';
+      $('#editMatVideoUrl').value='';
       $('#editorTitle').textContent=`Tambah Materi Baru #${nextId}`;
       $('#materialEditorCard').style.display='block';
       $('#materialEditorCard').scrollIntoView({behavior:'smooth'});
@@ -2152,7 +2219,8 @@ async function renderAdminMaterials(){
           task: $('#editMatTask').value,
           answers: $('#editMatAnswers').value,
           hint: $('#editMatHint').value,
-          explain: $('#editMatExplain').value
+          explain: $('#editMatExplain').value,
+          video_url: ($('#editMatVideoUrl').value||'').trim()
         };
         await api('/api/admin/challenges/save','POST',payload);
         $('#materialEditorCard').style.display='none';
