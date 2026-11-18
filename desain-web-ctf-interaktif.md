@@ -1,356 +1,281 @@
-# Desain Web CTF Pembelajaran Interaktif
-### Arah visual: "Buku Catatan Lapangan Peretas"
+# CyberLab CTF — National Innovation Edition
+### Master Blueprint & Spesifikasi Desain: "Buku Catatan Lapangan Peretas"
+**Platform Edukasi Keamanan Siber Berbasis Problem-Based Learning, Digital Forensics, & HOTS (C4–C6) untuk SMK TJKT**
 
-> Dokumen ini adalah panduan desain untuk platform CTF (Capture The Flag) yang mengajarkan keamanan siber lewat tantangan interaktif. Tujuan utamanya: **terlihat dibuat oleh manusia yang paham dunia hacking**, bukan template hasil AI.
-
----
-
-## 1. Konsep Besar
-
-Bayangkan sebuah **buku catatan lapangan milik peretas senior** yang diwariskan ke muridnya. Isinya:
-
-- Halaman kertas yang sedikit kekuningan, ada coretan pensil, stabilo, dan stempel.
-- Potongan output terminal yang "ditempel" seperti kliping.
-- Catatan pinggir tulisan tangan: *"jangan lupa cek header-nya!"*
-- Tantangan diberi nomor seperti kasus investigasi: `KASUS #014 — Cookie yang Terlalu Percaya Diri`.
-
-Referensi rasa (bukan untuk ditiru mentah):
-- Zine hacker lama (Phrack, 2600: The Hacker Quarterly)
-- Manual teknis tahun 80–90an (manual Commodore, buku O'Reilly klasik)
-- Buku catatan laboratorium & berkas detektif
-- Poster riso-print / sablon dua warna
-
-**Satu kalimat arah desain:**
-*Hangat seperti kertas, tajam seperti terminal, jujur seperti catatan tangan.*
+> **Identitas Visual:** *Hangat seperti kertas, tajam seperti terminal, jujur seperti catatan tangan.*  
+> **Identitas Pedagogis:** Mengubah paradigma CTF dari sekadar *"menebak flag"* menjadi **Investigasi Forensik Digital 5 Tahap** berbasis bukti nyata (*Evidence-Based Learning*), terukur dengan Kriteria Ketercapaian Tujuan Pembelajaran (KKTP) Kurikulum Merdeka.
 
 ---
 
-## 2. Ciri Desain "Generate AI" yang WAJIB Dihindari
-
-| Hindari | Kenapa | Gantinya |
-|---|---|---|
-| Gradien ungu–biru neon | Klise paling umum di desain AI | Dua warna tinta solid (merah bata + hijau fosfor) |
-| Glassmorphism / kartu blur transparan | Generik, tidak punya karakter | Kartu kertas dengan bayangan offset tegas |
-| Hero "Learn Cybersecurity the Fun Way 🚀" + 3 kartu fitur | Tata letak yang bisa ditukar ke situs mana pun | Halaman depan berbentuk sampul buku catatan |
-| Font Inter / Poppins di semua tempat | Default, tanpa suara | Kombinasi serif + monospace + tulisan tangan |
-| Ilustrasi 3D gembung / avatar robot | Langsung terasa "stok" | Diagram garis tangan, panah coretan, foto hitam-putih bertekstur |
-| Efek "matrix rain" hijau | Stereotip hacker film | Output terminal asli yang masuk akal |
-| Ikon gembok + perisai di mana-mana | Visual malas untuk "keamanan" | Simbol spesifik: paket jaringan, byte hex, kunci tulisan tangan |
-| Copy yang terlalu semangat & kosong | "Unlock your potential!" | Bahasa mentor yang santai dan spesifik |
-| Semua sudut membulat 16px, semua simetris | Rapi tapi tak bernyawa | Sudut tajam, sedikit miring, elemen yang "ditempel" |
+## DAFTAR ISI BLUEPRINT
+1. **Laporan Audit Proyek & Analisis Kesenjangan (Gap Analysis)**
+2. **Matriks Perbandingan: Fitur Eksisting vs Fitur Inovasi Nasional**
+3. **Filosofi Visual & Desain "Buku Catatan Lapangan Peretas" (Tetap Dipertahankan 100%)**
+4. **Modul 1: HOTS Investigation Engine (5 Tahap Investigasi Forensik)**
+5. **Modul 2: Smart Assessment Engine & Rubrik Analitik KKTP**
+6. **Modul 3: Teacher Learning Analytics Dashboard (Buku Besar Diagnostik)**
+7. **Modul 4: Integrasi Kurikulum Merdeka TJKT & LKPD Digital**
+8. **Modul 5: Sistem Evaluasi Pretest, Posttest, & Komputasi N-Gain Ilmiah**
+9. **Modul 6: Portofolio Investigasi Digital Siswa (Evidence Ledger)**
+10. **Modul 7: Arsitektur Database Supabase PostgreSQL, ERD, & RLS Policies**
+11. **Modul 8: Arsitektur Backend Node.js & Keamanan Laboratorium Terisolasi**
+12. **Modul 9: Portabilitas & Kompatibilitas Deployment Vercel**
+13. **Modul 10: Standar Kesiapan Lomba Inovasi Pembelajaran Nasional & Uji Ahli**
+14. **Roadmap Implementasi Bertahap & Kriteria Penerimaan (Acceptance Criteria)**
 
 ---
 
-## 3. Palet Warna
+## 1. Laporan Audit Proyek & Analisis Kesenjangan (Gap Analysis)
 
-Gunakan sedikit warna, pakai dengan tegas. Terinspirasi tinta cetak dua warna.
+### 1.1. Status Infrastruktur Saat Ini
+* **Backend:** Native Node.js (modul bawaan: `http`, `https`, `crypto`, `fs`, `path`). Tidak menggunakan Express, sehingga performa sangat tinggi, zero-dependency, dan kompatibel langsung dengan Vercel Serverless Function (`api/index.js` mengimpor `server.js`).
+* **Frontend:** Vanilla JavaScript modern (`public/app.js`, `public/index.html`, `public/style.css`). Mengusung antarmuka *Dossier File / Binder Tabs* analog (Sampul 01, Tujuan 02, Berkas Materi 03, Meja Kasus 04, Konsol Terminal 05, Roster Skor 06, Ruang Guru 07).
+* **Database:** Dual-engine sinkron. Mengutamakan PostgreSQL cloud Supabase (`ctf_challenges`, `ctf_students`, `ctf_submissions`, `ctf_curriculum`) via RESTful PostgREST, dengan fallback mirror lokal `data/progress.json`.
+* **Koleksi Kasus:** 60 kasus terstruktur dari Low (Dasar), Medium (Menengah), hingga High (Tinggi) mencakup 4 pilar TJKT: Linux Server (1–20), Jaringan & Firewall (21–40), Cyber & Web (41–55), dan Hardware/IoT (56–60).
 
-| Token | Peran | HEX | OKLCH |
+### 1.2. Analisis Kesenjangan Menuju Standar Inovasi Nasional
+| Aspek | Kondisi Saat Ini (Eksisting) | Target Inovasi Nasional (National Edition) | Kesenjangan (Gap) |
 |---|---|---|---|
-| `--kertas` | Latar utama | `#F2EBDD` | `oklch(0.94 0.02 85)` |
-| `--kertas-gelap` | Latar kartu / sisipan | `#E6DCC8` | `oklch(0.89 0.03 85)` |
-| `--tinta` | Teks utama | `#1E1B16` | `oklch(0.21 0.01 70)` |
-| `--pensil` | Teks sekunder, garis | `#6B6355` | `oklch(0.50 0.02 75)` |
-| `--merah-bata` | Aksen utama, stempel, CTA | `#B8402A` | `oklch(0.55 0.16 35)` |
-| `--fosfor` | Terminal, status "benar" | `#7FD36B` | `oklch(0.79 0.17 140)` |
-| `--layar` | Latar terminal | `#14170F` | `oklch(0.20 0.02 130)` |
-| `--stabilo` | Highlight teks penting | `#F5D547` | `oklch(0.87 0.16 95)` |
-
-**Aturan pakai:**
-- 80% halaman = kertas + tinta. Merah bata hanya untuk hal yang harus diperhatikan.
-- Hijau fosfor **hanya** muncul di dalam terminal dan saat flag benar.
-- Stabilo dipakai seperti stabilo sungguhan: miring sedikit, tidak rata sempurna.
+| **Pola Belajar** | Siswa membaca materi, mencoba terminal, memasukkan flag string (single input). | Alur investigasi 5 tahap (Identifikasi → Bukti → Analisis → Mitigasi → Refleksi). | Kasus belum mewajibkan perumusan hipotesis & bukti log sistem. |
+| **Dimensi Kognitif** | C1–C3 (Mengingat perintah, Menjalankan sintaks terminal). | C4 (Analisis Anomali), C5 (Evaluasi Konfigurasi), C6 (Mendesain Aturan Mitigasi). | Belum ada rubrik HOTS formal dan LKPD terintegrasi. |
+| **Penilaian Guru** | Skor biner (Benar = Dapat XP, Salah = 0) + First Blood bonus. | Smart Assessment: Rubrik analitik berbobot, validasi bukti otomatis, dan konversi KKTP. | Penilaian belum membedakan proses berpikir siswa dengan tebakan flag. |
+| **Bukti Belajar** | Flag tersimpan di log submission (`ctf_submissions`). | Digital Evidence Ledger: Riwayat perintah terminal, file artefak, hipotesis tertulis, dan catatan refleksi. | Siswa belum memiliki dokumen portofolio investigasi yang dapat diunduh. |
+| **Evaluasi Dampak** | Hanya skor leaderboard akumulatif. | Pretest & Posttest terstandar dengan komputasi *Normalized Gain* ($N\text{-gain}$) otomatis. | Belum ada instrumen riset tindakan kelas untuk mengukur efektivitas media. |
+| **Analitik Guru** | Rekap nilai angka, rata-rata, dan ekspor CSV sederhana. | Dashboard Diagnostik: Distribusi KKTP, radar capaian C4–C6, rekomendasi remedial/pengayaan, grafik kemajuan. | Guru belum mendapatkan rekomendasi intervensi pedagogis berbasis data. |
 
 ---
 
-## 4. Tipografi
-
-| Peran | Font | Contoh pakai |
-|---|---|---|
-| Judul | **Fraunces** (serif, karakter kuat) atau **Newsreader** | Judul kasus, judul modul |
-| Teks isi | **IBM Plex Sans** atau **Source Serif 4** | Penjelasan materi |
-| Kode & terminal | **JetBrains Mono** atau **IBM Plex Mono** | Payload, output, flag |
-| Catatan tangan | **Caveat** atau **Kalam** (hemat! maks 1–2 per layar) | Catatan pinggir mentor |
-
-**Skala:**
-- Judul halaman: 48–64px, serif, rapat (`letter-spacing: -0.02em`)
-- Judul kasus: 28px
-- Isi: 17–18px, line-height 1.65 (enak dibaca panjang)
-- Label kecil/metadata: 12px monospace, HURUF BESAR, `letter-spacing: 0.08em`
-
----
-
-## 5. Tekstur & Detail yang Membuat Terasa "Buatan Tangan"
-
-- **Butiran kertas**: noise SVG halus (opasitas 4–6%) di latar.
-- **Garis buku**: garis horizontal tipis di area catatan, margin merah vertikal di kiri.
-- **Bayangan offset**: `box-shadow: 4px 4px 0 var(--tinta)` — tegas, tanpa blur.
-- **Selotip**: potongan selotip semi-transparan di pojok kartu yang "ditempel".
-- **Stempel**: "SELESAI", "TERPECAHKAN", "RAHASIA" dengan rotasi -6° sampai 4°, warna merah bata, tepi sedikit kasar.
-- **Rotasi kecil**: kartu tantangan diputar acak -1° s/d 1° (konsisten per kartu, bukan acak tiap reload).
-- **Coretan**: lingkaran pensil di sekitar angka penting, panah melengkung ke petunjuk.
-
-> Batasan: tekstur adalah bumbu. Jika satu layar punya lebih dari 3 elemen dekoratif, kurangi.
-
----
-
-## 6. Struktur Halaman
+## 2. Matriks Perbandingan: Fitur Eksisting vs Fitur Baru
 
 ```text
-/                 Sampul buku catatan (beranda)
-/jalur            Daftar jalur belajar (Web, Kripto, Forensik, Reverse, OSINT)
-/jalur/:slug      Peta kasus dalam satu jalur
-/kasus/:id        Halaman tantangan interaktif (inti produk)
-/arsip            Write-up & pembahasan kasus yang sudah selesai
-/papan            Papan skor
-/profil/:user     Buku catatan pribadi pemain
++--------------------------------------------------------------------------------------------------+
+| ARSITEKTUR FITUR CYBERLAB CTF                                                                     |
++--------------------------------------------------------------------------------------------------+
+| FITUR EKSISTING (DIPERTAHANKAN 100%)              | FITUR INOVASI NASIONAL (DITAMBAHKAN)         |
+|---------------------------------------------------+----------------------------------------------|
+| [✓] Visual Buku Catatan Lapangan Peretas          | [+] HOTS Investigation Stepper (5 Tahap)     |
+| [✓] Palet Kertas, Tinta, Pensil, Merah Bata, CRT  | [+] Form Perumusan Masalah & Hipotesis       |
+| [✓] Simulator Terminal Linux Interaktif           | [+] Digital Evidence Vault (Log & Artifacts) |
+| [✓] Microcassette Analog Audio Narration          | [+] Defense Validator (Pengujian Mitigasi)   |
+| [✓] Single Sign-On / Registrasi Mandiri Siswa     | [+] Rubrik Analitik KKTP Terkonfigurasi      |
+| [✓] Panel Guru & Reset Sandi Darurat              | [+] Pretest & Posttest Evaluator (N-Gain)    |
+| [✓] 60 Skenario Kasus Lengkap Kurikulum TJKT      | [+] Portofolio Investigasi PDF Cetak         |
+| [✓] Sinkronisasi Supabase Cloud Real-time         | [+] Radar Kompetensi C4, C5, C6              |
+| [✓] Dynamic Scoring & First Blood Bonus           | [+] Instrumen Validasi Ahli Pembelajaran     |
+| [✓] Mode Ujian dengan Flag Dinamis Siswa          | [+] Isolasi Sandbox VirtualBox Runner (Spec) |
++--------------------------------------------------------------------------------------------------+
 ```
 
 ---
 
-## 7. Beranda — "Sampul Buku Catatan"
+## 3. Filosofi Desain Visual "Buku Catatan Lapangan Peretas"
+*(Prinsip ini dijaga ketat agar tidak berubah menjadi template SaaS modern yang dingin)*
 
-```text
-+--------------------------------------------------------------+
-|  CATATAN LAPANGAN                         [Masuk] [Daftar]   |
-|  ----------------------------------------------------------  |
-|                                                              |
-|   Vol. 03 — Edisi Belajar                                    |
-|                                                              |
-|   Cara Membobol                     ┌──────────────────┐     |
-|   Sesuatu yang                      │ $ curl -I target │     |
-|   Kamu Pahami.                      │ HTTP/1.1 200 OK  │     |
-|                                     │ X-Debug: true  ◄─┼── "nah, ini dia"
-|   ~~~~~~~~~~~~ (garis stabilo)      └──────────────────┘     |
-|                                                              |
-|   [ Buka Kasus Pertama → ]   47 kasus · 5 jalur              |
-|                                                              |
-|  ----------------------------------------------------------  |
-|  DAFTAR ISI                                                  |
-|  01  Web ........................ 14 kasus                   |
-|  02  Kriptografi ................ 9 kasus                    |
-|  03  Forensik ................... 10 kasus                   |
-|  04  Reverse Engineering ........ 8 kasus                    |
-|  05  OSINT ...................... 6 kasus                    |
-+--------------------------------------------------------------+
+### 3.1. Karakter & Esensi Visual
+* **Kertas Bertekstur**: Latar halaman menggunakan warna `--kertas` (`#F2EBDD`) dengan tekstur bintik halus kertas daur ulang / memo kantor forensik.
+* **Tinta & Pensil**: Tulisan utama berwarna hitam arang `--tinta` (`#1E1B16`), catatan sekunder `--pensil` (`#6B6355`).
+* **Stempel Fisik Timbul**: Status kasus menggunakan stempel merah bata `--merah-bata` (`#B8402A`) dengan sudut kemiringan acak -4° s/d 3° bertuliskan `"RAHASIA"`, `"TERPECAHKAN"`, atau `"MENUNGGU VERIFIKASI"`.
+* **Layar Telemetri Tabung (CRT)**: Terminal Linux vintage menggunakan latar `--layar` (`#14170F`) dan pendaran hijau fosfor `--fosfor` (`#7FD36B`).
+* **Catatan Pinggir Mentor (Marginalia)**: Menggunakan font tulisan tangan natural (*Caveat*) dengan coretan panah pensil mengarah langsung ke konsep teknis yang dianalisis.
+* **Tanpa Gradien Neon & Tanpa Glassmorphism**: Elemen visual tegas dengan bayangan offset solid `3px 3px 0 var(--tinta)`.
+
+---
+
+## 4. MODUL 1 — HOTS INVESTIGATION ENGINE (5 TAHAP INVESTIGASI)
+
+Setiap tantangan dari 60 kasus CTF ditransformasikan dari format satu pertanyaan biasa menjadi alur penyelidikan insiden 5 tahap terstruktur:
+
+```mermaid
+flowchart LR
+    A["Tahap 1: Identifikasi<br/>(Gejala & Aset)"] --> B["Tahap 2: Bukti<br/>(Log & Konfigurasi)"]
+    B --> C["Tahap 3: Analisis (C4)<br/>(Hipotesis & Akar Masalah)"]
+    C --> D["Tahap 4: Mitigasi (C5)<br/>(Defensive Hardening)"]
+    D --> E["Tahap 5: Refleksi (C6)<br/>(Laporan & Evaluasi)"]
 ```
 
-- Tidak ada kartu "fitur" bertiga. Daftar isi dengan titik-titik bergaya buku menggantikan itu.
-- Satu potongan terminal nyata sebagai visual utama, dengan catatan tangan yang menunjuk detail penting.
+### Rincian Alur per Tahap:
+
+#### Tahap 1: Identifikasi Insiden & Orientasi Lapangan
+* **Aktivitas Siswa**: Membaca ringkasan laporan telemetri, mengidentifikasi aset yang diserang (IP, port, layanan), serta menentukan gejala anomali (DoS, privilege escalation, unauthorized access, sniffing).
+* **Indikator**: Kemampuan merumuskan fokus masalah teknis dan batasan sistem.
+* **Input Siswa**: Isian formulir formulasi masalah & pemilihan parameter aset yang terindikasi disusupi.
+
+#### Tahap 2: Pengumpulan & Verifikasi Bukti Forensik
+* **Aktivitas Siswa**: Menjalankan simulator terminal Linux untuk menelusuri berkas konfigurasi (`/etc/ssh/sshd_config`, `/etc/sudoers`), berkas log (`/var/log/auth.log`, `/var/log/syslog`), atau memeriksa permission binary SUID.
+* **Indikator**: Keterampilan mengoperasikan perkakas diagnostik sistem dan mengekstrak artefak digital yang valid.
+* **Input Siswa**: Bukti potongan log/output terminal yang ditandai sebagai artefak investigasi.
+
+#### Tahap 3: Analisis Anomali & Rekonstruksi Serangan (HOTS C4)
+* **Aktivitas Siswa**: Menghubungkan temuan bukti dengan konsep protokol. Siswa menyusun hipotesis: *"Mengapa celah ini terbuka?"*, *"Bagaimana penyerang berpindah dari user biasa menjadi root?"*.
+* **Indikator**: Keterampilan menganalisis relasi sebab-akibat kegagalan konfigurasi keamanan (*Root Cause Analysis*).
+* **Input Siswa**: Penjelasan teknis akar masalah + verifikasi kunci investigasi (*evidence flag*).
+
+#### Tahap 4: Mitigasi & Penguatan Pertahanan Sistem (HOTS C5)
+* **Aktivitas Siswa**: Memilih langkah perbaikan (remediasi defensif). Siswa menentukan baris konfigurasi yang benar, hak akses file (`chmod/chown`), atau aturan firewall (`iptables/ufw`).
+* **Indikator**: Kemampuan mengevaluasi kelayakan solusi pertahanan dan mencegah eksploitasi berulang.
+* **Input Siswa**: Sintaks perintah mitigasi atau pemilihan konfigurasi perbaikan yang divalidasi otomatis oleh sistem (*Defensive Validator*).
+
+#### Tahap 5: Refleksi Pedagogis & Pembuatan Berita Acara (HOTS C6)
+* **Aktivitas Siswa**: Menyusun ringkasan eksekutif (*Incident Response Report*) yang berisi kesimpulan, evaluasi keputusan, serta rekomendasi pencegahan untuk administrator sistem di masa depan.
+* **Indikator**: Kemampuan mengonseptualisasikan pelajaran yang dipetik (*lessons learned*) ke dalam standar operasional prosedur (SOP).
+* **Input Siswa**: Esai refleksi terstruktur siswa.
 
 ---
 
-## 8. Halaman Kasus — Inti Pembelajaran Interaktif
+## 5. MODUL 2 — SMART ASSESSMENT ENGINE & RUBRIK KKTP
 
-Tata letak dua kolom: **berkas kasus** di kiri, **meja kerja** di kanan.
+Sistem penilaian tidak lagi hanya melihat apakah string flag cocok atau tidak. Skor akhir kasus dikomputasi dari rubrik analitik multi-dimensi:
 
-```text
-+-------------------------------+------------------------------+
-| KASUS #014          [WEB][★★☆]| MEJA KERJA                   |
-| Cookie yang Terlalu           | ┌──────────────────────────┐ |
-| Percaya Diri                  | │ terminal / browser mini  │ |
-|                               | │ $ _                      │ |
-| ▸ Situasi                     | │                          │ |
-|   Sebuah toko online menyimpan| └──────────────────────────┘ |
-|   peran user di cookie...     |                              |
-|                               | [ Tab: Terminal | Request |  |
-| ▸ Yang perlu kamu pahami      |         Decoder | Catatan ] |
-|   - Apa itu cookie            |                              |
-|   - Base64 bukan enkripsi  ✎  | ┌ KIRIM FLAG ─────────────┐ |
-|                               | │ flag{________________}  │ |
-| ▸ Petunjuk (3)                | │              [ Kirim ]  │ |
-|   [Buka petunjuk 1  -0 poin]  | └─────────────────────────┘ |
-|   [Buka petunjuk 2 -10 poin]  |                              |
-|   [Buka petunjuk 3 -25 poin]  |                              |
-+-------------------------------+------------------------------+
+### 5.1. Komposisi Bobot Standar (Dapat Disesuaikan Guru)
+1. **Identifikasi Masalah (15%)**: Ketepatan mengenali indikator kompromi (IoC).
+2. **Pengumpulan Bukti (20%)**: Keabsahan artefak log dan perintah forensik yang digunakan.
+3. **Analisis Akar Masalah / C4 (25%)**: Kedalaman logika dalam merekonstruksi alur penyerangan.
+4. **Validasi Mitigasi / C5 (25%)**: Efektivitas solusi perbaikan konfigurasi sistem.
+5. **Refleksi & Pelaporan / C6 (15%)**: Kejelasan sintesis berita acara dan simpulan SOP.
+
+### 5.2. Kategori Kriteria Ketercapaian Tujuan Pembelajaran (KKTP)
+Berdasarkan panduan Kurikulum Merdeka SMK, perolehan nilai siswa dikelompokkan ke dalam 4 interval:
+* **0 – 69 (Perlu Bimbingan / Remedial Khusus)**: Belum mencapai kriteria minimum. Membutuhkan modul remidiasi dan panduan terpandu guru.
+* **70 – 79 (Cukup / Remedial Terfokus)**: Memahami sintaks dasar terminal namun lemah pada perumusan hipotesis akar masalah.
+* **80 – 89 (Baik / Tuntas)**: Berhasil menganalisis anomali, membuktikan eksploitasi, dan mengaplikasikan konfigurasi mitigasi.
+* **90 – 100 (Sangat Baik / Pengayaan)**: Menguasai seluruh tahapan investigasi, mitigasi presisi, dan menuliskan rekomendasi SOP mitigasi tingkat lanjut.
+
+---
+
+## 6. MODUL 3 — DASHBOARD ANALITIK GURU (BUKU BESAR DIAGNOSTIK)
+
+Dirancang khusus dengan estetika **Buku Besar Penilaian Guru**, menampilkan telemetri belajar nyata:
+* **Kartu Metrik Makro**: Total Siswa Aktif, Rata-rata Skor Diagnostik Kelas, Ketuntasan KKTP (%), dan Rasio Remedial.
+* **Diagram Radar Capaian HOTS**: Visualisasi pencapaian rata-rata kelas pada dimensi **C4 (Analisis)**, **C5 (Evaluasi)**, dan **C6 (Kreasi/Mitigasi)**.
+* **Buku Ledger Ketuntasan Siswa**: Tabel nilai detail menampilkan: Nama, Kelas, NISN, Progres Tahap 1–5, Poin XP, Predikat KKTP, serta tombol *"Buka Portofolio Siswa"*.
+* **Pusat Rekomendasi Remedial & Pengayaan**: Daftar otomatis siswa yang memerlukan intervensi pada topik spesifik (misal: *"3 siswa mengalami kendala pada analisis hak akses Linux SUID"*).
+* **Alat Ekspor Resmi**:
+  - Rekap Nilai Format Rapor Merdeka (CSV / Excel).
+  - Lembar Bukti Hasil Pembelajaran untuk Portofolio Lomba Guru (PDF Siap Cetak).
+
+---
+
+## 7. MODUL 4 — INTEGRASI KURIKULUM MERDEKA TJKT & LKPD DIGITAL
+
+Menghubungkan struktur kurikulum dari hulu ke hilir:
+$$\text{Fase F (SMK TJKT)} \longrightarrow \text{Elemen Kompetensi} \longrightarrow \text{Tujuan Pembelajaran (TP)} \longrightarrow \text{Indikator HOTS} \longrightarrow \text{Kasus CTF} \longrightarrow \text{LKPD Digital}$$
+
+### 4 Pilar Kompetensi & Distribusi 60 Kasus:
+1. **TP-01: Linux Dasar & Administrasi Server** (Kasus #001 s/d #020)
+   - *Fokus*: File system hierarchy, permission rwx, SUID/SGID, sudoers policy, cron jobs security, log forensic (`auth.log`), service isolation (SSH, Apache, Nginx).
+2. **TP-02: Jaringan Komputer, Protokol & Firewall** (Kasus #021 s/d #040)
+   - *Fokus*: Packet analysis, ARP spoofing detection, DNS poisoning, VLAN hopping, port scanning analysis, iptables stateful filtering, port knocking, NAT manipulation.
+3. **TP-03: Keamanan Siber, Web & Kriptografi Forensik** (Kasus #041 s/d #055)
+   - *Fokus*: Insecure direct object reference (IDOR), SQL injection parameter bypass, broken cookie authentication, reverse shell detection, Base64/Hex/XOR decryption, hashing integrity.
+4. **TP-04: Keamanan Perangkat Keras, IoT & Serial** (Kasus #056 s/d #060)
+   - *Fokus*: UART serial baudrate debugging, firmware plain text leak extraction, IoT default credentials exploitation, embedded bus traffic sniffing.
+
+### Lembar Kerja Peserta Didik (LKPD) Digital:
+Siswa dapat mengerjakan LKPD langsung di platform secara terintegrasi dengan simulator, tanpa harus membuka dokumen kertas terpisah. Guru dapat mengunduh kompilasi LKPD seluruh kelas sebagai artefak bukti pembelajaran.
+
+---
+
+## 8. MODUL 5 — SISTEM EVALUASI PRETEST, POSTTEST, & N-GAIN
+
+Untuk kebutuhan penelitian tindakan kelas (PTK), evaluasi efektivitas media pembelajaran, atau pembuktian lomba karya inovasi:
+* **Bank Soal Evaluasi**: Soal pilihan ganda konseptual dan studi kasus singkat yang setara pada Pretest dan Posttest.
+* **Perhitungan Normalized Gain ($N\text{-gain}$)** otomatis:
+$$g = \frac{S_{\text{post}} - S_{\text{pre}}}{S_{\text{max}} - S_{\text{pre}}}$$
+* **Interpretasi $N\text{-gain}$ Ilmiah (Hake, 1999)**:
+  - $g \ge 0.70$ : Efektivitas Tinggi
+  - $0.30 \le g < 0.70$ : Efektivitas Sedang
+  - $g < 0.30$ : Efektivitas Rendah
+* **Data Bersih & Etis**: Tidak ada rekayasa data. Hasil dihitung murni dari respons nyata siswa, siap disajikan ke hadapan dewan juri lomba inovasi.
+
+---
+
+## 9. MODUL 6 — PORTOFOLIO INVESTIGASI DIGITAL (EVIDENCE LEDGER)
+
+Setiap siswa memiliki halaman buku catatan pribadi (*Personal Investigation Dossier*) yang merangkum bukti kompetensi nyata:
+1. **Kronologi Kasus**: Tanggal dan jam kasus diselesaikan.
+2. **Rekaman Terminal Telemetri**: Perintah-perintah Linux yang berhasil dieksekusi.
+3. **Catatan Hipotesis & Esai Refleksi**: Narasi penalaran siswa saat memecahkan insiden.
+4. **Catatan Validasi & Umpan Balik Guru**: Catatan pembinaan langsung dari instruktur.
+5. **Cetak Portofolio Mandiri**: Tombol cetak ramah dokumen (clean print layout) untuk portofolio magang industri siswa TJKT.
+
+---
+
+## 10. MODUL 7 — ARSITEKTUR DATABASE SUPABASE POSTGRESQL
+
+Struktur skema database baru dirancang **kompatibel mundur (backward compatible)** dengan tabel yang sudah berjalan (`ctf_challenges`, `ctf_students`, `ctf_submissions`, `ctf_curriculum`).
+
+### 10.1. Diagram Relasi Entitas (ERD)
+
+```mermaid
+erDiagram
+    ctf_classes ||--o{ ctf_students : "memiliki siswa"
+    ctf_classes ||--o{ ctf_class_challenges : "menugaskan kasus"
+    ctf_challenges ||--o{ ctf_class_challenges : "ditugaskan ke"
+    ctf_challenges ||--o{ ctf_investigation_stages : "memiliki 5 tahap"
+    ctf_students ||--o{ ctf_investigation_progress : "mengerjakan tahap"
+    ctf_investigation_stages ||--o{ ctf_investigation_progress : "dikerjakan oleh"
+    ctf_students ||--o{ ctf_submissions : "mengirim flag"
+    ctf_challenges ||--o{ ctf_submissions : "menerima flag"
+    ctf_students ||--o{ ctf_eval_attempts : "mengerjakan pre/post"
+    ctf_curriculum ||--o{ ctf_challenges : "memayungi"
+    ctf_students ||--o{ ctf_teacher_feedback : "menerima umpan balik"
 ```
 
-### Elemen interaktif
+### 10.2. Daftar Tabel Baru & Perannya
+1. `ctf_classes`: Pengelolaan kelas (e.g. XII TJKT 1, XI TJKT 2) dengan kode kelas unik.
+2. `ctf_investigation_stages`: Menyimpan detail 5 tahap investigasi untuk masing-masing dari 60 kasus CTF.
+3. `ctf_investigation_progress`: Menyimpan jawaban tahap, bukti log, hipotesis siswa, kode mitigasi, dan refleksi per kasus.
+4. `ctf_rubrics`: Master kriteria penilaian HOTS (C4, C5, C6) dan bobot persentase.
+5. `ctf_eval_questions`: Bank soal pretest dan posttest diagnostik kompetensi siber.
+6. `ctf_eval_attempts`: Nilai pretest, posttest, dan perhitungan skor $N\text{-gain}$ per siswa.
+7. `ctf_teacher_feedback`: Catatan pembinaan, penilaian rubrik uraian, dan umpan balik personal guru.
 
-1. **Terminal mini di browser** — perintah terbatas yang aman (`curl`, `base64`, `xxd`, `strings`), output realistis.
-2. **Inspektur request** — pemain bisa mengedit header/cookie lalu kirim ulang, melihat respons berubah.
-3. **Decoder** — Base64, Hex, URL, ROT13, dengan tampilan langkah demi langkah.
-4. **Catatan pribadi** — area bergaris tempat pemain menulis; tersimpan per kasus dan muncul lagi di profil.
-5. **Petunjuk bertingkat** — petunjuk 1 gratis (arah berpikir), 2 berbiaya kecil (alat), 3 berbiaya besar (hampir jawaban).
-6. **Mode "Pelajari dulu"** — sebelum kasus, ada mini-pelajaran 3–5 langkah dengan latihan kecil (isi kekosongan, pilih payload yang benar).
-
-### Umpan balik flag
-
-| Kondisi | Tampilan | Copy |
-|---|---|---|
-| Format salah | Garis bawah merah bergelombang | "Formatnya `flag{...}`, ya." |
-| Salah | Kartu bergeser kecil (shake 200ms) | "Belum. Coba lihat lagi isi cookie-nya." |
-| Hampir benar (opsional) | Coretan pensil | "Dekat. Ada satu karakter yang kurang." |
-| Benar | Stempel "TERPECAHKAN" jatuh ke halaman + teks fosfor | "Kena. Sekarang baca kenapa ini bisa terjadi →" |
-
-Setelah benar, **selalu** tampilkan bagian *"Kenapa ini berbahaya & cara memperbaikinya"* — inilah inti pembelajarannya, bukan cuma skor.
+### 10.3. Keamanan & Kebijakan RLS (Row Level Security)
+* Siswa hanya dapat membaca kasus aktif dan hanya dapat membuat/mengubah progres miliknya sendiri.
+* Guru/Administrator memiliki akses penuh membaca seluruh progres kelas dan memberikan penilaian serta umpan balik.
+* Backend serverless menggunakan *Service Role* tepercaya untuk komputasi analitik sensitif.
 
 ---
 
-## 9. Peta Jalur Belajar
+## 11. MODUL 8 — ARSITEKTUR BACKEND NODE.JS & KEAMANAN LABORATORIUM
 
-Bukan grid kartu. Gunakan **peta coretan** seperti denah tangan:
+### 11.1. Lapisan Simulasi Aman (Zero-Risk Browser Sandbox)
+* Simulator terminal berbasis parser deterministik di client-side: perintah-perintah Linux standar (`pwd`, `ls -la`, `cat`, `curl -i`, `sudo -l`, `find`, `decode`, `clear`) diproses secara aman tanpa mengeksekusi shell langsung pada mesin host Vercel.
+* **Keuntungan**: Keamanan 100% dari celah Remote Code Execution (RCE), biaya hosting Rp0 di Vercel, dan kecepatan instan tanpa latensi server.
 
-```text
-   [#001]───[#002]───[#003]
-     │                 │
-   [#004]           [#005]───[#006 BOS]
-     ╰──── jalan pintas ────╯
-```
-
-- Kasus selesai: diberi stempel kecil + coretan centang.
-- Kasus terkunci: digambar putus-putus dengan pensil.
-- Kasus "bos" di akhir jalur: kotak dobel, label tulisan tangan "ujian akhir".
+### 11.2. Cetak Biru Laboratorium Nyata (Ubuntu Server VirtualBox Runner)
+Untuk sekolah yang ingin menghubungkan terminal siswa ke Ubuntu Server fisik di lab sekolah:
+* **Arsitektur Runner Terisolasi**:
+  Siswa → Browser CyberLab CTF → Backend Node.js (Proxy Endpoint Aman) → Runner Agen Terisolasi di Lab Sekolah (VM Ubuntu VirtualBox Host-Only Network).
+* **Fitur Pengaman**: Snapshot VM di-revert otomatis setiap 30 menit, pembatasan CPU 1 core, memori 512 MB, serta isolasi VLAN tanpa akses internet keluar.
 
 ---
 
-## 10. Komponen Utama
+## 12. MODUL 9 — PORTABILITAS & KOMPATIBILITAS DEPLOYMENT VERCEL
 
-### Kartu Kasus
-- Latar `--kertas-gelap`, border 1.5px `--tinta`, bayangan offset 4px.
-- Nomor kasus besar monospace di pojok kanan atas, warna `--pensil`.
-- Label kategori seperti label map arsip (tab kecil di atas kartu).
-- Tingkat kesulitan: bintang tulisan tangan, bukan ikon bintang standar.
-- Hover: kartu "terangkat" (translate -2px, bayangan 6px). Tanpa glow.
-
-### Tombol
-| Varian | Gaya |
-|---|---|
-| Utama | Latar merah bata, teks kertas, sudut 2px, bayangan offset tinta |
-| Sekunder | Border tinta, latar transparan, teks tinta |
-| Terminal | Latar layar, teks fosfor, monospace, awalan `>` |
-| Tautan | Garis bawah bergelombang tipis |
-
-Saat ditekan: bayangan hilang, tombol turun 4px (seperti tombol fisik).
-
-### Terminal
-- Latar `--layar`, teks fosfor, sedikit scanline halus (opsional, opasitas 3%).
-- Kursor berkedip blok `█`.
-- Prompt realistis: `pemain@lab:~/kasus-014$`
-- Jangan efek mengetik pelan untuk output panjang — menyebalkan saat belajar.
-
-### Catatan Mentor
-- Font tulisan tangan, warna `--merah-bata` atau `--pensil`.
-- Diletakkan di margin dengan panah melengkung ke teks yang dimaksud.
-- Isinya spesifik dan berguna: *"perhatikan `role=user` — gimana kalau diganti?"*
+* Seluruh kode backend tetap berjalan di dalam single-entry serverless handler (`server.js` dipanggil oleh `api/index.js`).
+* Penyimpanan file konfigurasi mirror lokal otomatis mendeteksi lingkungan Vercel (`/tmp` storage) tanpa merusak integritas server.
+* Waktu respons API dioptimalkan di bawah 200ms melalui database indexing pada kolom `id`, `category`, `difficulty`, dan `student_name`.
 
 ---
 
-## 11. Gerak & Animasi
+## 13. MODUL 10 — STANDAR KESIAPAN LOMBA INOVASI PEMBELAJARAN NASIONAL
 
-Prinsip: **gerak fisik, bukan gerak digital.**
-
-| Momen | Animasi | Durasi |
-|---|---|---|
-| Halaman masuk | Kertas "digeser" dari bawah 8px + fade | 250ms |
-| Stempel benar | Skala 1.4 → 1, rotasi sedikit, sedikit bounce | 350ms |
-| Flag salah | Shake horizontal 3 kali | 200ms |
-| Buka petunjuk | Lipatan kertas terbuka (scaleY dari atas) | 220ms |
-| Stabilo | Garis tumbuh dari kiri ke kanan | 400ms |
-
-- Hormati `prefers-reduced-motion`: matikan semua kecuali fade.
-- Tidak ada partikel, confetti generik, atau animasi melayang terus-menerus.
+Platform dilengkapi berkas pelengkap inovasi:
+1. **Instrumen Uji Validitas Ahli Materi & Ahli Media Pembelajaran**: Lembar kuisioner skala Likert (1–5) terintegrasi untuk mengukur kevalidan media pembelajaran.
+2. **Lembar Persepsi & Respons Siswa**: Survei *Usability & Learning Engagement* bawaan platform.
+3. **Fitur Ekspor Bukti Portofolio Inovasi**: Halaman kompilasi laporan yang menyajikan grafik pertumbuhan hasil belajar, dokumentasi interaksi terminal, dan hasil analisis pedagogis siap cetak.
 
 ---
 
-## 12. Gaya Bahasa (Microcopy)
+## 14. ROADMAP IMPLEMENTASI BERTAHAP & KRITERIA PENERIMAAN
 
-Suara: **mentor senior yang santai, jujur, sedikit jahil.** Bahasa Indonesia sehari-hari, istilah teknis tetap dalam bahasa aslinya.
-
-| Jangan | Pakai |
-|---|---|
-| "Selamat datang di platform pembelajaran keamanan siber terbaik!" | "Ambil kopi. Kita bongkar sesuatu hari ini." |
-| "Unlock your hacking potential 🚀" | "47 kasus. Semuanya pernah terjadi di dunia nyata." |
-| "Jawaban Anda salah. Silakan coba lagi." | "Belum. Tapi kamu sudah di arah yang benar." |
-| "Selamat! Anda berhasil!" | "Kena. Sekarang baca kenapa ini bisa terjadi." |
-| "Error 404" | "Halaman ini sudah kami robek dari buku catatan." |
-| "Leaderboard" | "Papan Skor" |
+### Rencana Aksi Bertahap:
+* **Fase 1 (Selesai)**: Sinkronisasi 60 kasus lengkap, integrasi database Supabase real-time, eliminasi bug otorisasi admin, penyelarasan tampilan materi siswa dan guru, serta responsive layout HP/tablet.
+* **Fase 2 (Prioritas Saat Ini)**: Implementasi *HOTS Investigation Engine* (Stepper 5 Tahap) pada Meja Kasus dan Berkas Materi, pembaharuan skema database Supabase untuk tabel investigasi progress, dan LKPD digital.
+* **Fase 3**: Implementasi *Smart Assessment Engine*, konversi nilai KKTP, dan penambahan rubrik penilaian analitik di panel Guru.
+* **Fase 4**: Modul Pretest & Posttest dengan komputasi $N\text{-gain}$ otomatis dan dashboard analitik grafis.
+* **Fase 5**: Modul Portofolio Digital Cetak dan Instrumen Uji Validasi Ahli untuk kesiapan lomba nasional.
 
 ---
-
-## 13. Ilustrasi & Gambar
-
-- Diagram alur serangan digambar seperti di papan tulis: garis tangan, kotak tidak sempurna, panah coretan.
-- Foto (jika ada): hitam-putih, grain tinggi, duotone tinta + kertas.
-- Ikon: gaya garis 1.5px, sedikit tidak rata — atau gambar sendiri set ikon kecil (paket, byte, kunci, kaca pembesar, gembok rusak).
-- **Tidak boleh**: maskot robot, karakter hoodie tanpa wajah, ilustrasi 3D, gambar stok "hacker di depan layar hijau".
-
----
-
-## 14. Profil Pemain — "Buku Catatanku"
-
-- Tampil seperti halaman pertama buku catatan: nama ditulis tangan, tanggal mulai.
-- Koleksi stempel kasus yang sudah dipecahkan (seperti paspor).
-- Semua catatan pribadi dari tiap kasus terkumpul — jadi pemain punya "buku" sendiri di akhir.
-- Statistik ditulis seperti catatan, bukan dashboard: *"Paling kuat di: Web. Paling sering minta petunjuk di: Kripto."*
-
----
-
-## 15. Papan Skor
-
-- Tabel bergaya daftar hadir/ledger: garis horizontal, nomor urut monospace.
-- 3 teratas diberi lingkaran pensil, bukan piala emas.
-- Filter: minggu ini / semua waktu / per jalur.
-- Tampilkan juga "pembelajar paling konsisten" (hari beruntun), bukan hanya poin — supaya pemula tetap termotivasi.
-
----
-
-## 16. Responsif (Mobile)
-
-- Halaman kasus: kolom ditumpuk; meja kerja jadi panel bawah yang bisa ditarik ke atas.
-- Catatan mentor di margin pindah ke dalam alur teks sebagai kotak catatan bergaris.
-- Terminal tetap bisa dipakai: tombol pintasan perintah di atas keyboard (`curl`, `base64`, `|`, `Tab`).
-
----
-
-## 17. Aksesibilitas
-
-- Kontras teks tinta di atas kertas ≥ 7:1; fosfor di atas layar ≥ 7:1.
-- Font tulisan tangan **tidak pernah** untuk informasi penting saja — selalu ada versi teks biasa.
-- Tekstur dan rotasi tidak mengganggu pembaca layar (dekoratif = `aria-hidden`).
-- Semua interaksi terminal & form bisa dipakai keyboard penuh.
-- Umpan balik flag diumumkan lewat `aria-live`.
-
----
-
-## 18. Token Desain (Ringkas)
-
-```css
-:root {
-  --kertas: oklch(0.94 0.02 85);
-  --kertas-gelap: oklch(0.89 0.03 85);
-  --tinta: oklch(0.21 0.01 70);
-  --pensil: oklch(0.50 0.02 75);
-  --merah-bata: oklch(0.55 0.16 35);
-  --fosfor: oklch(0.79 0.17 140);
-  --layar: oklch(0.20 0.02 130);
-  --stabilo: oklch(0.87 0.16 95);
-
-  --font-judul: "Fraunces", Georgia, serif;
-  --font-isi: "IBM Plex Sans", system-ui, sans-serif;
-  --font-kode: "JetBrains Mono", ui-monospace, monospace;
-  --font-tangan: "Caveat", cursive;
-
-  --radius: 2px;
-  --bayangan-offset: 4px 4px 0 var(--tinta);
-  --bayangan-angkat: 6px 6px 0 var(--tinta);
-}
-```
-
----
-
-## 19. Daftar Periksa Sebelum Rilis
-
-- [ ] Tidak ada gradien ungu/biru, glassmorphism, atau glow neon.
-- [ ] Beranda tidak memakai pola "hero + 3 kartu fitur".
-- [ ] Setiap kasus punya bagian "kenapa ini berbahaya & cara memperbaikinya".
-- [ ] Catatan mentor isinya spesifik, bukan kalimat motivasi umum.
-- [ ] Hijau fosfor hanya di terminal & status benar.
-- [ ] Maksimal 3 elemen dekoratif per layar.
-- [ ] Semua copy dibaca ulang: apakah ini terdengar seperti manusia?
-- [ ] Animasi mematuhi `prefers-reduced-motion`.
-- [ ] Bisa dimainkan penuh di HP.
-
----
-
-*Catatan terakhir di pinggir halaman:* desain yang terasa "manusia" datang dari **keputusan yang spesifik** — warna yang sengaja sedikit, kalimat yang ditulis untuk satu kasus tertentu, dan detail kecil yang hanya terpikir oleh orang yang pernah benar-benar main CTF.
+*Dokumen ini merupakan master blueprint resmi CyberLab CTF National Innovation Edition. Seluruh implementasi kode wajib mematuhi standar desain dan arsitektur yang telah digariskan di atas.*
