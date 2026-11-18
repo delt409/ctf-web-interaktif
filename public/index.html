@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CyberLab CTF — Media Pembelajaran Interaktif TJKT & Dossier Forensik</title>
+  
+  <!-- Font Tipografi Presisi: Fraunces (Editorial Serif), IBM Plex Sans (Body), IBM Plex Mono (Data/Terminal), Caveat (Marginalia) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;0,9..144,900;1,9..144,400&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- Container Dokumen Dossier Utama -->
+  <div class="dossier-layout">
+    
+    <!-- Masthead & Telemetri Klasifikasi Atas -->
+    <header class="dossier-masthead">
+      <div class="masthead-left">
+        <div class="insignia-badge">
+          <span class="insignia-mark">▧</span>
+          <div>
+            <div class="insignia-title">CYBERLAB // TJKT DEFENSIVE & FORENSIC LAB</div>
+            <div class="insignia-subtitle">MEDIA PEMBELAJARAN KEJURUAN TJKT • NODE.JS & SUPABASE BACKED</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="masthead-center">
+        <span class="security-clearance">KURIKULUM MERDEKA TJKT</span>
+        <span class="session-telemetry" id="supabasePillStatus">DATABASE: LOCAL STORAGE (READY TO SYNC)</span>
+      </div>
+
+      <div class="masthead-right">
+        <div class="operator-profile">
+          <span class="operator-label">SISWA / OPERATOR:</span>
+          <strong id="who" class="operator-name">Penyelidik</strong>
+          <button id="logout" class="btn-logout" title="Tutup berkas & ganti profil">[KELUAR]</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Bilah Navigasi Tab Manila Folder (Binder Tabs) -->
+    <nav class="binder-tabs">
+      <button class="binder-tab active" data-view="dashboard">
+        <span class="tab-index">01</span>
+        <span class="tab-label">SAMPUL & INDEKS</span>
+      </button>
+      <button class="binder-tab" data-view="tujuan">
+        <span class="tab-index">02</span>
+        <span class="tab-label">TUJUAN & SILABUS TJKT</span>
+      </button>
+      <button class="binder-tab" data-view="materi">
+        <span class="tab-index">03</span>
+        <span class="tab-label">BERKAS MATERI</span>
+      </button>
+      <button class="binder-tab" data-view="tantangan">
+        <span class="tab-index">04</span>
+        <span class="tab-label">MEJA KASUS (CTF)</span>
+      </button>
+      <button class="binder-tab" data-view="terminal">
+        <span class="tab-index">05</span>
+        <span class="tab-label">KONSOL TERMINAL</span>
+      </button>
+      <button class="binder-tab" data-view="peringkat">
+        <span class="tab-index">06</span>
+        <span class="tab-label">ROSTER SKOR</span>
+      </button>
+      <button class="binder-tab binder-tab-admin" data-view="admin">
+        <span class="tab-index">⚙</span>
+        <span class="tab-label">PANEL GURU & ADMIN</span>
+      </button>
+    </nav>
+
+    <!-- Lembar Halaman Kerja (Paper Sheet Canvas) -->
+    <main class="dossier-canvas">
+      <!-- Header Dinamis Kasus / Halaman -->
+      <div class="canvas-header">
+        <div>
+          <div class="canvas-breadcrumb" id="canvasBreadcrumb">PEMBELAJARAN TJKT • TAHUN AJARAN 2026/2027</div>
+          <h1 id="pageTitle" class="canvas-title">Sampul & Indeks Kasus</h1>
+        </div>
+        <div class="canvas-meta" id="canvasMeta">
+          <span class="meta-tag">15 KASUS BERJENJANG (LOW → HIGH)</span>
+          <span class="meta-tag">MAPEL: TJKT KEJURUAN</span>
+        </div>
+      </div>
+
+      <!-- Area Mount Tampilan Dinamis -->
+      <section id="app" class="canvas-content"></section>
+
+      <!-- Footer Dokumen Formal -->
+      <footer class="dossier-footer">
+        <div class="footer-left">
+          <span>BERKAS RESMI LABORATORIUM TJKT — MEDIA BELAJAR DEFENSIVE SECURITY</span>
+          <span class="footer-separator">•</span>
+          <span>LINUX • PROTOKOL JARINGAN • WEB • KRIPTOGRAFI • HARDWARE</span>
+        </div>
+        <div class="footer-right">
+          <span class="footer-quote">"Hangat seperti kertas, tajam seperti terminal, jujur seperti catatan tangan."</span>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <!-- Dialog Masuk Siswa -->
+  <dialog id="loginDialog">
+    <form id="loginForm" class="login-dossier-card">
+      <div class="dossier-stamp-top">REGISTRASI SISWA</div>
+      <div class="login-header-group">
+        <div class="login-serial">REF: AUTH-TJKT-2026/A1</div>
+        <h2>Buku Catatan Lapangan</h2>
+        <p class="login-desc">Masukkan nama siswa dan kelas Anda untuk menyimpan progres pembelajaran, akumulasi skor XP, dan laporan capaian kompetensi.</p>
+      </div>
+
+      <div class="login-field-wrap">
+        <label for="studentName" class="login-label">NAMA SISWA / OPERATOR:</label>
+        <input id="studentName" placeholder="contoh: Ahmad_Fauzi" required minlength="2" maxlength="40" autocomplete="nickname">
+      </div>
+
+      <div class="login-field-wrap" style="margin-top:12px">
+        <label for="studentKelas" class="login-label">KELAS / JURUSAN:</label>
+        <input id="studentKelas" placeholder="contoh: XII TJKT 1" value="XII TJKT 1" maxlength="30">
+      </div>
+
+      <button type="submit" class="btn-primary-action login-submit" style="margin-top:16px">
+        <span>Buka Buku Catatan & Mulai Belajar →</span>
+      </button>
+      <p class="login-error" id="loginError"></p>
+    </form>
+  </dialog>
+
+  <!-- Dialog Masuk Khusus Guru / Admin -->
+  <dialog id="adminLoginDialog">
+    <form id="adminLoginForm" class="login-dossier-card">
+      <div class="dossier-stamp-top">OTORISASI GURU</div>
+      <div class="login-header-group">
+        <div class="login-serial">PORTAL KHUSUS GURU & KURIKULUM</div>
+        <h2>Panel Pengelolaan & Nilai</h2>
+        <p class="login-desc">Masukkan kata sandi administrator untuk mengelola rapor siswa, generate akun massal, tambah soal, dan konfigurasi database Supabase.</p>
+      </div>
+
+      <div class="login-field-wrap">
+        <label for="adminPassword" class="login-label">KATA SANDI ADMIN / GURU:</label>
+        <input id="adminPassword" type="password" placeholder="Default: guru2026" required autocomplete="current-password">
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button type="submit" class="btn-primary-action login-submit" style="flex:1">
+          <span>Masuk Panel Guru →</span>
+        </button>
+        <button type="button" class="btn-secondary-action" id="closeAdminDialog">
+          <span>Batal</span>
+        </button>
+      </div>
+      <p class="login-error" id="adminLoginError"></p>
+    </form>
+  </dialog>
+
+  <script src="/app.js"></script>
+</body>
+</html>
